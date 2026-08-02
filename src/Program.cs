@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices.JavaScript;
+using System.Threading.Tasks;
 using DotCL;
 
 /// <summary>
@@ -23,7 +24,9 @@ public static partial class Playground
     /// what went wrong — the page shows it either way rather than failing
     /// silently on a blank screen.</summary>
     [JSExport]
-    public static string Boot()
+    public static Task<string> Boot() => Task.Run(BootCore);
+
+    private static string BootCore()
     {
         if (_booted) return "ok";
         try
@@ -69,7 +72,9 @@ public static partial class Playground
     /// <summary>Evaluate one block. The record it returns is assembled in Lisp;
     /// see PLAYGROUND:RUN.</summary>
     [JSExport]
-    public static string Run(string source)
+    public static Task<string> Run(string source) => Task.Run(() => RunCore(source));
+
+    private static string RunCore(string source)
     {
         // Text, not the printed representation of a string — ToString would wrap
         // the record in quotes and escape what is inside it, and the field

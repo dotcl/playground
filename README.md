@@ -60,12 +60,26 @@ in `Playground.csproj`. Turning trimming off is not the way out; the bundle then
 mixes in framework assemblies that were not built for `browser-wasm` and fails at
 startup instead.
 
-**The Lisp runs on the page's thread.** It was meant to run in a worker, so a
-runaway block could be killed and the tab kept alive. `dotnet.create()` does not
-settle inside a dedicated worker — there is no `document` there — so for now a
-block that never returns takes the tab with it, and the way out is to reload.
-Everything around `evaluate()` in `main.js` is already async so that this can move
-without disturbing the rest.
+**Threads change where the Lisp runs, and it is worth it.** Built plainly, dotcl
+runs on the page thread and a block that never returns takes the tab with it. Built
+with `-p:WasmEnableThreads=true` it runs off the page thread instead: measured in
+Chrome, a twenty-million-iteration loop left `requestAnimationFrame` at a full 60fps
+and page callbacks answering in 1-2ms. `dotcl:make-thread` works there too.
+
+The cost is hosting. Threads need `SharedArrayBuffer`, which needs two headers:
+
+```
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+GitHub Pages cannot send headers, so the workflow here builds the single-threaded
+page. A host that can send them (Netlify, Cloudflare Pages, anything of your own)
+gets the responsive one from the same source — add `-p:WasmEnableThreads=true`.
+
+Running in a dedicated worker instead would have avoided the headers, but does not
+work at all: `dotnet.create()` never settles there, because a worker has no
+`document`.
 
 **The prelude is loaded with `LOAD`, not evaluated as one form.** It defines a
 package and then reads symbols in it, which only works if the reader does not run
@@ -77,7 +91,7 @@ empty until something writes to it — so the prelude is written there and loade
 Real ones, worth knowing before you plan a chapter around something:
 
 - no sockets, no subprocesses, no native FFI
-- no threads (that needs headers GitHub Pages cannot set)
+- no threads on GitHub Pages (they need headers Pages cannot set; elsewhere they work)
 - Quicklisp does not work in the page; the image is what you get
 - about three to five times slower than the same code on the desktop
 - roughly 3.5 MB to download the first time, then cached

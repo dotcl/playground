@@ -7,13 +7,12 @@ const SEP = String.fromCharCode(31);   // must match prelude.lisp and Program.cs
 
 // ── the engine ───────────────────────────────────────────────────────────────
 //
-// dotcl runs on this thread, which is not where it belongs: a block that never
-// returns takes the tab with it, and there is no way to interrupt it. It was
-// meant to live in a worker, where the page could terminate a runaway and start
-// another image. That does not work today — dotnet.create() never settles inside
-// a dedicated worker (there is no `document` there), so the runtime has to be on
-// the main thread. Everything below the `evaluate` boundary is async on purpose,
-// so moving it once that changes is a local edit.
+// Boot and Run are async on both sides, which is not a stylistic choice: with
+// -p:WasmEnableThreads=true the runtime moves off the page thread and refuses
+// synchronous calls outright ("Cannot call synchronous C# methods"). Keeping the
+// boundary async means the same page works either way — single-threaded, where
+// Lisp runs here and a long block freezes the tab, or threaded, where it does
+// not. See the README for what the threaded build costs to host.
 
 let exports = null;
 let ready = null;
@@ -27,7 +26,7 @@ async function start() {
     const { getAssemblyExports, getConfig } = await dotnet.create();
     say('loading the Lisp core…');
     exports = await getAssemblyExports(getConfig().mainAssemblyName);
-    const result = exports.Playground.Boot();
+    const result = await exports.Playground.Boot();
     if (result !== 'ok') throw new Error(result);
 }
 
@@ -35,7 +34,7 @@ async function evaluate(source) {
     await ready;
     // Let the browser paint the "running" state before we take the thread away.
     await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
-    return exports.Playground.Run(source);
+    return await exports.Playground.Run(source);
 }
 
 // ── running a block ──────────────────────────────────────────────────────────
