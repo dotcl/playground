@@ -19,6 +19,7 @@ about what this particular implementation left out.
 | `src/trimmer-roots.xml` | .NET types the Lisp reaches by name, which the trimmer cannot see |
 | `src/wwwroot/lem.html`, `lem.js` | a second page: Lem, drawn from the messages it sends |
 | `src/lem-page.lisp` | the editor's side of that — start it, take its drawing, hand it input |
+| `tools/probe-page.mjs`, `probe-lem.mjs` | open either page in headless Chrome and report what it did |
 | `assets/dotcl.core` | the Lisp image, built by dotcl and vendored here |
 
 **Writing a chapter takes no JavaScript.** Add a `<pre class="lisp">` and it becomes
@@ -134,6 +135,23 @@ none of them, so every one of its 35 entries ends with a key and no value.
 `getf` on an odd-length plist is an error, and it is signalled before any file
 content is read. Nothing to do with the browser: the feature test would fail the
 same way on the desktop. A fork with a `#+dotcl` branch is the fix.
+
+**A successful publish says nothing about whether the page runs.** The trimmer
+removes what only Lisp calls, a core that fails to load fails in the browser and
+nowhere else, and neither shows up in the build log. `tools/` opens the pages in
+headless Chrome and says what actually happened:
+
+```sh
+node tools/probe-page.mjs http://127.0.0.1:8080/ '(lisp-implementation-type)'
+node tools/probe-lem.mjs  http://127.0.0.1:8080/lem.html shot.png 'hello|C-a|>>> '
+```
+
+Both take `EVAL_AFTER` — Lisp evaluated in the page once it is up, through the
+`window.lem` hook — which is how to ask the image questions the screen cannot
+answer: which buffers exist, which threads are alive, whether some library
+works at all. `probe-lem.mjs` also takes `EVAL_BEFORE`, which runs in the same
+image the editor is in and can therefore define a command and then drive it from
+the keyboard.
 
 ## Limits
 
