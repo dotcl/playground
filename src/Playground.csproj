@@ -18,6 +18,34 @@
     <DotclCore Condition="'$(DotclCore)' == ''">../assets/dotcl.core</DotclCore>
   </PropertyGroup>
 
+  <!-- A second core, loaded on top of the base one. save-application output is a
+       closure over the systems it was built from, not a whole image, so it adds
+       to the base core rather than replacing it. Off unless asked for, because
+       such an image is large enough to change what the page costs to open:
+         -p:LemCore=../../lem-dotcl-probe/lem-app.core -->
+  <PropertyGroup>
+    <LemCore Condition="'$(LemCore)' == ''"></LemCore>
+  </PropertyGroup>
+
+  <!-- Contrib modules the loaded code may REQUIRE. A page starts with an empty
+       filesystem, so the ordinary search — contrib/name/name.fasl beside the
+       program — finds nothing, and REQUIRE is not optional: a core built from
+       asdf systems asks ASDF for its own versions as it loads. They are carried
+       as bytes and written to the in-memory filesystem at boot.
+         -p:ContribModules=../../dotcl-fixer/contrib/*/*.fasl -->
+  <PropertyGroup>
+    <ContribModules Condition="'$(ContribModules)' == ''"></ContribModules>
+  </PropertyGroup>
+
+  <!-- A data file the image expects to find on disk. trivial-mimes reads
+       /etc/mime.types as it loads and signals an error when it is not there,
+       so any image containing it needs the file written to the page's
+       filesystem first. It ships its own copy, which is what to point at:
+         -p:MimeTypes=.../trivial-mimes-20260101-git/mime.types -->
+  <PropertyGroup>
+    <MimeTypes Condition="'$(MimeTypes)' == ''"></MimeTypes>
+  </PropertyGroup>
+
   <ItemGroup Condition="Exists('$(DotclSource)')">
     <ProjectReference Include="$(DotclSource)" />
   </ItemGroup>
@@ -27,6 +55,14 @@
 
   <ItemGroup>
     <EmbeddedResource Include="$(DotclCore)" LogicalName="dotcl.core" />
+    <EmbeddedResource Condition="'$(LemCore)' != ''" Include="$(LemCore)" LogicalName="lem.core" />
+    <EmbeddedResource Condition="'$(MimeTypes)' != ''" Include="$(MimeTypes)" LogicalName="etc/mime.types" />
+    <!-- The -r2r- variants are the same module ahead-of-time compiled for one
+         desktop RID; the plain .fasl is the portable IL a page can load. -->
+    <EmbeddedResource Condition="'$(ContribModules)' != ''"
+                      Include="$(ContribModules)" Exclude="**/*-r2r-*.fasl">
+      <LogicalName>contrib/%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
     <EmbeddedResource Include="prelude.lisp" LogicalName="prelude.lisp" />
     <WasmExtraFilesToDeploy Include="wwwroot/**" />
   </ItemGroup>
@@ -41,6 +77,8 @@
   <ItemGroup>
     <TrimmerRootAssembly Include="Playground" />
     <TrimmerRootAssembly Include="System.Runtime.InteropServices.JavaScript" />
+    <!-- Individual types Lisp names as strings; see the file for the list. -->
+    <TrimmerRootDescriptor Include="trimmer-roots.xml" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,27 @@
+<!--
+  Types that Lisp asks for by name.
+
+  The trimmer sees no IL referring to any of this: a core is loaded at run time
+  and reaches .NET through strings, so a type nothing else happens to use is
+  removed and the call fails at boot with MissingMethodException. Rooting whole
+  assemblies is not an option here — System.Private.CoreLib is most of the
+  download — so the types are named one at a time.
+
+  The list came from scanning the sources in the image for "System.*" literals,
+  not from reading code. Rescan when the image changes.
+
+    System.Runtime.InteropServices.OSPlatform
+    System.Runtime.InteropServices.RuntimeInformation
+        trivial-features (src/tf-dotcl.lisp) and cffi (src/cffi-dotcl.lisp)
+        ask which OS and architecture they are on while they load, through
+        RuntimeInformation.IsOSPlatform against each OSPlatform value in turn.
+
+  Both live in System.Private.CoreLib here: the facade assemblies that normally
+  export them are not part of a browser-wasm bundle.
+-->
+<linker>
+  <assembly fullname="System.Private.CoreLib">
+    <type fullname="System.Runtime.InteropServices.OSPlatform" preserve="all" />
+    <type fullname="System.Runtime.InteropServices.RuntimeInformation" preserve="all" />
+  </assembly>
+</linker>

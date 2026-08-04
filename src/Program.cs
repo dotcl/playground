@@ -43,6 +43,23 @@ public static partial class Playground
                 DotclHost.LoadCore(ms.ToArray());
             }
 
+            // Anything else that was embedded — absent unless the build was
+            // pointed at it. See ContribModules and LemCore in the .csproj.
+            //
+            // The modules go to the filesystem rather than straight into the
+            // image: what needs them is code inside the core calling REQUIRE,
+            // which searches for a file. Nothing has to say in advance which
+            // ones that will be.
+            UnpackContrib(asm, ContribRoot);
+
+            // Likewise a data file some library insists on reading as it loads,
+            // at the absolute path it looks for. See MimeTypes in the .csproj.
+            UnpackFile(asm, "etc/mime.types", "/etc/mime.types");
+
+            // A save-application closure, which adds to the base core rather
+            // than replacing it — so it loads after, not instead.
+            LoadEmbedded(asm, "lem.core");
+
             // Through the filesystem rather than as one string: the prelude
             // defines a package and then reads symbols in it, so the reader must
             // not run ahead of the evaluator. LOAD gets that right by definition,
@@ -83,6 +100,52 @@ public static partial class Playground
         // Only reached if the Lisp side itself is broken — PLAYGROUND:RUN
         // handles ordinary evaluation errors and reports them as data.
         catch (Exception e) { return "error" + S + S + S + "HOST" + S + Chain(e) + S; }
+    }
+
+    /// <summary>Where the embedded contrib modules are written. Any directory
+    /// will do — dotcl is told about it rather than having to guess.</summary>
+    private const string ContribRoot = "/dotcl-contrib";
+
+    /// <summary>Write the embedded contrib modules to the in-memory filesystem
+    /// as contrib/name/name.fasl, and point dotcl's module search at them.
+    /// Does nothing when none were embedded.</summary>
+    private static void UnpackContrib(Assembly asm, string root)
+    {
+        var any = false;
+        foreach (var resource in asm.GetManifestResourceNames())
+        {
+            if (!resource.StartsWith("contrib/")) continue;
+            var file = resource.Substring("contrib/".Length);
+            var dir = Path.Combine(root, Path.GetFileNameWithoutExtension(file));
+            Directory.CreateDirectory(dir);
+            using (var s = asm.GetManifestResourceStream(resource))
+            using (var f = File.Create(Path.Combine(dir, file)))
+                s.CopyTo(f);
+            any = true;
+        }
+        if (any) Runtime.ContribExtraSearchPaths.Add(root);
+    }
+
+    /// <summary>Write one embedded file to the in-memory filesystem, if it was
+    /// embedded at all.</summary>
+    private static void UnpackFile(Assembly asm, string resource, string path)
+    {
+        using var s = asm.GetManifestResourceStream(resource);
+        if (s == null) return;
+        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        using var f = File.Create(path);
+        s.CopyTo(f);
+    }
+
+    /// <summary>Load an embedded core or module, if it is there. Absent is the
+    /// normal case: these are opt-in at build time.</summary>
+    private static void LoadEmbedded(Assembly asm, string name)
+    {
+        using var s = asm.GetManifestResourceStream(name);
+        if (s == null) return;
+        var ms = new MemoryStream();
+        s.CopyTo(ms);
+        DotclHost.LoadCore(ms.ToArray());
     }
 
     /// <summary>The characters of a Lisp string, without the reader syntax.</summary>

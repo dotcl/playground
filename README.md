@@ -16,6 +16,7 @@ about what this particular implementation left out.
 | `src/wwwroot/main.js` | turns those blocks into editors with a Run button |
 | `src/prelude.lisp` | `PLAYGROUND:RUN` — reads, evaluates, and reports back |
 | `src/Program.cs` | boots the Lisp core and hands blocks to it |
+| `src/trimmer-roots.xml` | .NET types the Lisp reaches by name, which the trimmer cannot see |
 | `assets/dotcl.core` | the Lisp image, built by dotcl and vendored here |
 
 **Writing a chapter takes no JavaScript.** Add a `<pre class="lisp">` and it becomes
@@ -85,6 +86,30 @@ work at all: `dotnet.create()` never settles there, because a worker has no
 package and then reads symbols in it, which only works if the reader does not run
 ahead of the evaluator. A browser does have a filesystem — an in-memory one,
 empty until something writes to it — so the prelude is written there and loaded.
+
+**A bigger image can be loaded, but it has to bring its world with it.** The build
+takes three optional inputs, all off by default, for putting a `save-application`
+core into the page on top of the one vendored here:
+
+```sh
+dotnet publish -c Release \
+  -p:LemCore=../../lem-dotcl-probe/lem-app.core \
+  -p:ContribModules='../../dotcl/contrib/*/*.fasl' \
+  -p:MimeTypes=.../trivial-mimes/mime.types
+```
+
+The last two are there because a page starts with an *empty* filesystem, not
+because of anything about the core. Code inside it calls `REQUIRE`, which looks
+for `contrib/name/name.fasl` on disk, and libraries read data files as they load
+— `trivial-mimes` signals an error unless `/etc/mime.types` exists. Both are
+written to the in-memory filesystem before the core loads. Types the Lisp asks
+for *by name* need rooting in `trimmer-roots.xml`, for the same reason
+`Playground.csproj` roots assemblies: `trivial-features` decides which OS it is
+on by reading `OSPlatform` members, and the trimmer sees no IL referring to them.
+
+Measured with Lem in the core: a 47 MB main assembly, about 20 seconds from
+opening the page to a usable image, after which `lem:make-buffer` and the rest
+behave as they do on the desktop.
 
 ## Limits
 
