@@ -60,16 +60,11 @@ public static partial class Playground
             // than replacing it — so it loads after, not instead.
             LoadEmbedded(asm, "lem.core");
 
-            // Through the filesystem rather than as one string: the prelude
-            // defines a package and then reads symbols in it, so the reader must
-            // not run ahead of the evaluator. LOAD gets that right by definition,
-            // and wrapping the file in a single PROGN gets it wrong. A browser
-            // does have a filesystem — an in-memory one, empty until written to.
-            const string preludePath = "/playground-prelude.lisp";
-            using (var s = asm.GetManifestResourceStream("prelude.lisp"))
-            using (var r = new StreamReader(s))
-                File.WriteAllText(preludePath, r.ReadToEnd());
-            DotclHost.EvalString("(load \"" + preludePath + "\")");
+            LoadLisp(asm, "prelude.lisp", "/playground-prelude.lisp");
+
+            // The editor's side of the page, when there is an editor. Absent
+            // from the build otherwise — it reads symbols only that core has.
+            LoadLisp(asm, "lem-page.lisp", "/lem-page.lisp");
 
             // Confirm rather than assume: a condition signalled while loading is
             // reported to the console and execution carries on, so a broken
@@ -100,6 +95,43 @@ public static partial class Playground
         // Only reached if the Lisp side itself is broken — PLAYGROUND:RUN
         // handles ordinary evaluation errors and reports them as data.
         catch (Exception e) { return "error" + S + S + S + "HOST" + S + Chain(e) + S; }
+    }
+
+    // ── the editor ───────────────────────────────────────────────────────────
+    //
+    // Three calls, and what they do is in lem-page.lisp. The drawing is pulled
+    // rather than pushed because the editor runs on its own thread, and a
+    // thread that is not the page thread cannot call into JavaScript.
+
+    /// <summary>Start the editor at this size. "ok", or why not.</summary>
+    [JSExport]
+    public static Task<string> LemStart(int width, int height)
+        => Task.Run(() => Text(DotclHost.EvalString($"(lem-page:start {width} {height})")));
+
+    /// <summary>Everything the editor has drawn since the last call: JSON-RPC
+    /// messages joined by the field separator.</summary>
+    [JSExport]
+    public static Task<string> LemDrain()
+        => Task.Run(() => Text(DotclHost.EvalString("(lem-page:drain)")));
+
+    /// <summary>Hand one JSON-RPC message to the editor.</summary>
+    [JSExport]
+    public static Task LemSend(string json)
+        => Task.Run(() => DotclHost.EvalString(
+            "(lem-page:deliver-message " + Literal(json) + ")"));
+
+    /// <summary>Load an embedded Lisp file through the filesystem, if it is
+    /// there. Through a file rather than as one string because these define a
+    /// package and then read symbols in it: the reader must not run ahead of
+    /// the evaluator, which is exactly what LOAD guarantees and what wrapping
+    /// the file in a single PROGN would break. A browser does have a
+    /// filesystem — an in-memory one, empty until written to.</summary>
+    private static void LoadLisp(Assembly asm, string resource, string path)
+    {
+        using var s = asm.GetManifestResourceStream(resource);
+        if (s == null) return;
+        using (var r = new StreamReader(s)) File.WriteAllText(path, r.ReadToEnd());
+        DotclHost.EvalString("(load \"" + path + "\")");
     }
 
     /// <summary>Where the embedded contrib modules are written. Any directory

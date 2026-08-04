@@ -64,6 +64,10 @@
       <LogicalName>contrib/%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="prelude.lisp" LogicalName="prelude.lisp" />
+    <!-- Reads symbols from the packages the Lem core brings, so it is only
+         meaningful — and only present — when that core is. -->
+    <EmbeddedResource Condition="'$(LemCore)' != ''" Include="lem-page.lisp"
+                      LogicalName="lem-page.lisp" />
     <WasmExtraFilesToDeploy Include="wwwroot/**" />
   </ItemGroup>
 

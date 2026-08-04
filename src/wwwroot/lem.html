@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lem, running here</title>
+<link rel="preload" id="webassembly" />
+<script type="importmap"></script>
+<script type="module" src="lem.js"></script>
+<style>
+  :root { --fg: #dcdcdc; --bg: #1e1e28; }
+  html, body { margin: 0; background: #14141c; color: var(--fg);
+               font-family: system-ui, sans-serif; }
+  header { padding: 1rem 1.25rem 0.5rem; }
+  h1 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+  p { margin: 0.35rem 0 0; font-size: 0.85rem; color: #9a9ab0; }
+  #status.ready { color: #7ac07a; }
+  #status.broken { color: #e07a7a; white-space: pre-wrap; }
+  /* The screen is a character grid: one row per line, every cell the same
+     width. A monospace font is not enough on its own — the rows have to be
+     positioned by line height too, or a taller glyph would push the grid. */
+  #screen { margin: 0.75rem 1.25rem; padding: 0.5rem; width: max-content;
+            background: var(--bg); border-radius: 4px;
+            font-family: "Cascadia Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+            font-size: 14px; line-height: 1.25; white-space: pre; tab-size: 8;
+            outline: none; cursor: text; }
+  #screen:focus { box-shadow: 0 0 0 2px #4a4a6a; }
+  .row { height: 1.25em; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Lem, running here</h1>
+  <p>The editor itself, compiled to WebAssembly and running in this tab —
+     not a recording of one. Click the screen and type.
+     <kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>Ctrl</kbd>+<kbd>F</kbd> opens a file,
+     and the filesystem it opens is this page's.</p>
+  <p id="status">loading…</p>
+</header>
+
+<div id="screen" tabindex="0"></div>
+
+</body>
+</html>

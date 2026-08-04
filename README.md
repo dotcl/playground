@@ -17,6 +17,8 @@ about what this particular implementation left out.
 | `src/prelude.lisp` | `PLAYGROUND:RUN` — reads, evaluates, and reports back |
 | `src/Program.cs` | boots the Lisp core and hands blocks to it |
 | `src/trimmer-roots.xml` | .NET types the Lisp reaches by name, which the trimmer cannot see |
+| `src/wwwroot/lem.html`, `lem.js` | a second page: Lem, drawn from the messages it sends |
+| `src/lem-page.lisp` | the editor's side of that — start it, take its drawing, hand it input |
 | `assets/dotcl.core` | the Lisp image, built by dotcl and vendored here |
 
 **Writing a chapter takes no JavaScript.** Add a `<pre class="lisp">` and it becomes
@@ -110,6 +112,28 @@ on by reading `OSPlatform` members, and the trimmer sees no IL referring to them
 Measured with Lem in the core: a 47 MB main assembly, about 20 seconds from
 opening the page to a usable image, after which `lem:make-buffer` and the rest
 behave as they do on the desktop.
+
+**`lem.html` is that image with a screen attached.** Lem's own frontend is a
+separate program that talks to the editor over a socket; here the editor is a
+thread of this runtime, so the transport is jsonrpc's in-process one and the
+frontend is `lem.js` — a character grid built from the `put`, `clear` and
+`move-cursor` messages the editor already sends. Nothing about the editor is
+modified for the page.
+
+It needs `-p:WasmEnableThreads=true`, and that is not a preference: the editor
+takes a thread of its own and blocks it, so a single-threaded build cannot start
+it at all. Threads need `SharedArrayBuffer`, which needs the two headers in the
+section above — so the Lem page cannot be served from GitHub Pages even though
+the playground can.
+
+What works: typing, movement and editing commands, the modeline, `C-x C-f` and
+its prompt window. What does not: **opening an existing file**. Lem detects a
+file's encoding through `inquisitor`, whose encoding table gives `:impl-name` a
+value per implementation — `#+sbcl`, `#+ccl`, `#+clisp` and so on — and dotcl is
+none of them, so every one of its 35 entries ends with a key and no value.
+`getf` on an odd-length plist is an error, and it is signalled before any file
+content is read. Nothing to do with the browser: the feature test would fail the
+same way on the desktop. A fork with a `#+dotcl` branch is the fix.
 
 ## Limits
 
