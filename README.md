@@ -40,8 +40,15 @@ cd src
 dotnet publish -c Release
 ```
 
-Without one, the published `DotCL.Runtime` package is used instead. Either way the
-output is a directory of static files:
+Without one, the published `DotCL.Runtime` package is used instead — **which does
+not work yet**. The page hands the core to `DotclHost.LoadCore(byte[])`, because
+a page has no filesystem to give it a path to, and that overload landed after
+`0.1.22`, the newest release there is. So the CI build, which has no checkout,
+cannot succeed until a release contains it; `DotclVersion` is pinned at `0.1.23`
+in anticipation of one. This was never noticed because the workflow has never
+run.
+
+Either way the output is a directory of static files:
 
 ```
 src/bin/Release/net10.0/browser-wasm/AppBundle/

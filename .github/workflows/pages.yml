@@ -6,7 +6,9 @@ name: Publish the playground
 
 on:
   push:
-    branches: [main]
+    # Both, so the deploy does not silently never happen on a repository whose
+    # default branch is the other one. Nothing here depends on which it is.
+    branches: [main, master]
   workflow_dispatch:
 
 permissions:
