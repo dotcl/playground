@@ -124,8 +124,14 @@ modified for the page.
 It needs `-p:WasmEnableThreads=true`, and that is not a preference: the editor
 takes a thread of its own and blocks it, so a single-threaded build cannot start
 it at all. Threads need `SharedArrayBuffer`, which needs the two headers in the
-section above — so the Lem page cannot be served from GitHub Pages even though
-the playground can.
+section above, so the Lem page needs a host that can send them and the
+playground does not. GitHub Pages cannot. The known way around that is a service
+worker synthesizing the headers in the browser — what the server sent stops
+mattering once the response the page sees comes from the worker — at the cost of
+one automatic reload on a first visit. Untested here.
+
+`lem.html` is deployed with the rest of `wwwroot` whether or not the image can
+answer it, and says so rather than failing obscurely when it cannot.
 
 What works: typing, movement and editing commands, the modeline, `C-x C-f` and
 its prompt window. What does not: **opening an existing file**. Lem detects a

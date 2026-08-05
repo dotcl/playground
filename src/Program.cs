@@ -103,10 +103,15 @@ public static partial class Playground
     // rather than pushed because the editor runs on its own thread, and a
     // thread that is not the page thread cannot call into JavaScript.
 
-    /// <summary>Start the editor at this size. "ok", or why not.</summary>
+    /// <summary>Start the editor at this size. "ok", or why not — including the
+    /// ordinary case of a build that has no editor in it. lem.html is deployed
+    /// with the rest of wwwroot whether or not the image can answer it, so that
+    /// has to read as a plain answer rather than as a failure.</summary>
     [JSExport]
-    public static Task<string> LemStart(int width, int height)
-        => Task.Run(() => Text(DotclHost.EvalString($"(lem-page:start {width} {height})")));
+    public static Task<string> LemStart(int width, int height) => Task.Run(() =>
+        Text(DotclHost.EvalString("(if (find-package \"LEM-PAGE\") \"yes\" \"no\")")) == "yes"
+            ? Text(DotclHost.EvalString($"(lem-page:start {width} {height})"))
+            : "this build has no editor in it — publish with -p:LemCore=… (see the README)");
 
     /// <summary>Everything the editor has drawn since the last call: JSON-RPC
     /// messages joined by the field separator.</summary>

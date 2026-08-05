@@ -18,6 +18,11 @@
 
   Both live in System.Private.CoreLib here: the facade assemblies that normally
   export them are not part of a browser-wasm bundle.
+
+  Rooted in every build, not only the ones carrying that image. Measured: the
+  bundle is the same size either way, to the byte. And the page is an
+  interactive Lisp — a block can name any type it likes, so the reach is not
+  really a property of what was embedded.
 -->
 <linker>
   <assembly fullname="System.Private.CoreLib">
