@@ -11,7 +11,7 @@
 ;;;; makes a frame one call instead of one per drawing operation, and a redraw
 ;;;; is hundreds of them.
 ;;;;
-;;;; Loaded only when the image has Lem in it; see LemCore in the .csproj.
+;;;; Carried only when asked for; see LemPage in the .csproj.
 
 (defpackage :lem-page
   (:use :cl)

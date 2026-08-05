@@ -20,11 +20,22 @@
 
   <!-- A second core, loaded on top of the base one. save-application output is a
        closure over the systems it was built from, not a whole image, so it adds
-       to the base core rather than replacing it. Off unless asked for, because
-       such an image is large enough to change what the page costs to open:
-         -p:LemCore=../../lem-dotcl-probe/lem-app.core -->
+       to the base core rather than replacing it. Nothing here knows or cares
+       what is in it — Lem is only the largest thing tried:
+         -p:ExtraCore=../../lem-dotcl-probe/lem-app.core
+       Off unless asked for, because an image is large enough to change what the
+       page costs to open, and the page has to stay something worth opening. -->
   <PropertyGroup>
-    <LemCore Condition="'$(LemCore)' == ''"></LemCore>
+    <ExtraCore Condition="'$(ExtraCore)' == ''"></ExtraCore>
+  </PropertyGroup>
+
+  <!-- Whether to carry lem-page.lisp, which is the editor's half of lem.html.
+       Separate from ExtraCore rather than implied by it: that file names
+       lem-server and jsonrpc packages as it is read, so putting it in an image
+       that has no Lem in it does not degrade — it stops the page from booting.
+         -p:ExtraCore=…/lem-app.core -p:LemPage=true -->
+  <PropertyGroup>
+    <LemPage Condition="'$(LemPage)' == ''"></LemPage>
   </PropertyGroup>
 
   <!-- Contrib modules the loaded code may REQUIRE. A page starts with an empty
@@ -55,7 +66,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="$(DotclCore)" LogicalName="dotcl.core" />
-    <EmbeddedResource Condition="'$(LemCore)' != ''" Include="$(LemCore)" LogicalName="lem.core" />
+    <EmbeddedResource Condition="'$(ExtraCore)' != ''" Include="$(ExtraCore)" LogicalName="extra.core" />
     <EmbeddedResource Condition="'$(MimeTypes)' != ''" Include="$(MimeTypes)" LogicalName="etc/mime.types" />
     <!-- The -r2r- variants are the same module ahead-of-time compiled for one
          desktop RID; the plain .fasl is the portable IL a page can load. -->
@@ -64,9 +75,7 @@
       <LogicalName>contrib/%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="prelude.lisp" LogicalName="prelude.lisp" />
-    <!-- Reads symbols from the packages the Lem core brings, so it is only
-         meaningful — and only present — when that core is. -->
-    <EmbeddedResource Condition="'$(LemCore)' != ''" Include="lem-page.lisp"
+    <EmbeddedResource Condition="'$(LemPage)' != ''" Include="lem-page.lisp"
                       LogicalName="lem-page.lisp" />
     <WasmExtraFilesToDeploy Include="wwwroot/**" />
   </ItemGroup>

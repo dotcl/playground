@@ -96,10 +96,15 @@ core into the page on top of the one vendored here:
 
 ```sh
 dotnet publish -c Release \
-  -p:LemCore=../../lem-dotcl-probe/lem-app.core \
+  -p:ExtraCore=../../lem-dotcl-probe/lem-app.core \
   -p:ContribModules='../../dotcl/contrib/*/*.fasl' \
   -p:MimeTypes=.../trivial-mimes/mime.types
 ```
+
+Nothing here is about Lem. `ExtraCore` is whatever `save-application` produced,
+and Lem is only the largest thing that has been put through it — a closure of a
+few libraries is the same mechanism at a fraction of the weight, and stays on
+the side of this that GitHub Pages can serve.
 
 The last two are there because a page starts with an *empty* filesystem, not
 because of anything about the core. Code inside it calls `REQUIRE`, which looks
@@ -114,7 +119,9 @@ Measured with Lem in the core: a 47 MB main assembly, about 20 seconds from
 opening the page to a usable image, after which `lem:make-buffer` and the rest
 behave as they do on the desktop.
 
-**`lem.html` is that image with a screen attached.** Lem's own frontend is a
+**`lem.html` is that image with a screen attached** — built with `-p:LemPage=true`
+alongside the core, since the file it adds names Lem's packages as it is read and
+would stop any other image from booting. Lem's own frontend is a
 separate program that talks to the editor over a socket; here the editor is a
 thread of this runtime, so the transport is jsonrpc's in-process one and the
 frontend is `lem.js` — a character grid built from the `put`, `clear` and

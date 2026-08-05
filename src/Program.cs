@@ -44,7 +44,7 @@ public static partial class Playground
             }
 
             // Anything else that was embedded — absent unless the build was
-            // pointed at it. See ContribModules and LemCore in the .csproj.
+            // pointed at it. See ContribModules and ExtraCore in the .csproj.
             //
             // The modules go to the filesystem rather than straight into the
             // image: what needs them is code inside the core calling REQUIRE,
@@ -58,7 +58,7 @@ public static partial class Playground
 
             // A save-application closure, which adds to the base core rather
             // than replacing it — so it loads after, not instead.
-            LoadEmbedded(asm, "lem.core");
+            LoadEmbedded(asm, "extra.core");
 
             LoadLisp(asm, "prelude.lisp", "/playground-prelude.lisp");
 
@@ -111,7 +111,8 @@ public static partial class Playground
     public static Task<string> LemStart(int width, int height) => Task.Run(() =>
         Text(DotclHost.EvalString("(if (find-package \"LEM-PAGE\") \"yes\" \"no\")")) == "yes"
             ? Text(DotclHost.EvalString($"(lem-page:start {width} {height})"))
-            : "this build has no editor in it — publish with -p:LemCore=… (see the README)");
+            : "this build has no editor in it — publish with -p:ExtraCore=… -p:LemPage=true"
+              + " (see the README)");
 
     /// <summary>Everything the editor has drawn since the last call: JSON-RPC
     /// messages joined by the field separator.</summary>
