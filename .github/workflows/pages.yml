@@ -37,6 +37,29 @@ jobs:
 
       - run: dotnet publish src/Playground.csproj -c Release
 
+      # What was actually built, on the run's summary page rather than buried in
+      # the log. A page whose whole point is that it downloads a Lisp is one
+      # whose weight is the thing to watch, and "the build was green" does not
+      # say whether it doubled.
+      - name: What the page weighs
+        run: |
+          bundle=src/bin/Release/net10.0/browser-wasm/AppBundle
+          version=$(dotnet msbuild src/Playground.csproj -getProperty:DotclVersion)
+          total=$(du -sb "$bundle" | cut -f1)
+          {
+            echo "Built from DotCL.Runtime **$version**."
+            echo
+            echo "Everything in the bundle: **$(numfmt --to=iec "$total")**. A first"
+            echo "visit fetches less — one of the ICU sets, none of the symbol files."
+            echo
+            echo "| file | bytes |"
+            echo "|---|--:|"
+            find "$bundle" -type f -printf '%s\t%P\n' | sort -rn | head -12 |
+              while IFS=$'\t' read -r size path; do
+                echo "| \`$path\` | $(numfmt --grouping "$size") |"
+              done
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: src/bin/Release/net10.0/browser-wasm/AppBundle

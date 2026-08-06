@@ -56,15 +56,7 @@ public static partial class Playground
             // at the absolute path it looks for. See MimeTypes in the .csproj.
             UnpackFile(asm, "etc/mime.types", "/etc/mime.types");
 
-            // A save-application closure, which adds to the base core rather
-            // than replacing it — so it loads after, not instead.
-            LoadEmbedded(asm, "extra.core");
-
             LoadLisp(asm, "prelude.lisp", "/playground-prelude.lisp");
-
-            // The editor's side of the page, when there is an editor. Absent
-            // from the build otherwise — it reads symbols only that core has.
-            LoadLisp(asm, "lem-page.lisp", "/lem-page.lisp");
 
             // Confirm rather than assume: a condition signalled while loading is
             // reported to the console and execution carries on, so a broken
@@ -96,6 +88,24 @@ public static partial class Playground
         // handles ordinary evaluation errors and reports them as data.
         catch (Exception e) { return "error" + S + S + S + "HOST" + S + Chain(e) + S; }
     }
+
+    /// <summary>Load a save-application closure on top of the base core. The
+    /// bytes come from the page, which fetched them: an image big enough to be
+    /// worth choosing is too big to sit in an assembly every page downloads.
+    /// Returns "ok" or what went wrong.</summary>
+    [JSExport]
+    public static Task<string> LoadExtraCore(byte[] core) => Task.Run(() =>
+    {
+        try
+        {
+            // A closure adds to the base core rather than replacing it, so it
+            // loads after — and anything written against it, after that.
+            DotclHost.LoadCore(core);
+            LoadLisp(Assembly.GetExecutingAssembly(), "lem-page.lisp", "/lem-page.lisp");
+            return "ok";
+        }
+        catch (Exception e) { return "loading the image failed:" + Chain(e); }
+    });
 
     // ── the editor ───────────────────────────────────────────────────────────
     //
@@ -173,17 +183,6 @@ public static partial class Playground
         Directory.CreateDirectory(Path.GetDirectoryName(path));
         using var f = File.Create(path);
         s.CopyTo(f);
-    }
-
-    /// <summary>Load an embedded core or module, if it is there. Absent is the
-    /// normal case: these are opt-in at build time.</summary>
-    private static void LoadEmbedded(Assembly asm, string name)
-    {
-        using var s = asm.GetManifestResourceStream(name);
-        if (s == null) return;
-        var ms = new MemoryStream();
-        s.CopyTo(ms);
-        DotclHost.LoadCore(ms.ToArray());
     }
 
     /// <summary>The characters of a Lisp string, without the reader syntax.</summary>

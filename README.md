@@ -12,7 +12,8 @@ about what this particular implementation left out.
 
 | | |
 |---|---|
-| `src/wwwroot/index.html` | the material. Prose plus `<pre class="lisp">` blocks |
+| `src/wwwroot/index.html` | the front page: what is here, and links to it |
+| `src/wwwroot/playground.html` | the material. Prose plus `<pre class="lisp">` blocks |
 | `src/wwwroot/main.js` | turns those blocks into editors with a Run button |
 | `src/prelude.lisp` | `PLAYGROUND:RUN` — reads, evaluates, and reports back |
 | `src/Program.cs` | boots the Lisp core and hands blocks to it |
@@ -96,7 +97,7 @@ empty until something writes to it — so the prelude is written there and loade
 
 **A bigger image can be loaded, but it has to bring its world with it.** The build
 takes three optional inputs, all off by default, for putting a `save-application`
-core into the page on top of the one vendored here:
+core into the page on top of the base one:
 
 ```sh
 dotnet publish -c Release \
@@ -109,6 +110,14 @@ Nothing here is about Lem. `ExtraCore` is whatever `save-application` produced,
 and Lem is only the largest thing that has been put through it — a closure of a
 few libraries is the same mechanism at a fraction of the weight, and stays on
 the side of this that GitHub Pages can serve.
+
+**The core is served beside the page, not embedded in it.** It is copied into the
+bundle as `extra.core` and fetched by the page that wants it. Embedding put it
+inside `Playground.wasm`, which every page downloads — with Lem in it that was
+47 MB, so opening the front page meant fetching an editor nobody asked for.
+Fetched, the assembly stays at 1.6 MB and only `lem.html` pays. It also keeps a
+40 MB file out of this repository: it is a build input, produced elsewhere, and
+a page that is not built with one serves no such file and says so.
 
 The last two are there because a page starts with an *empty* filesystem, not
 because of anything about the core. Code inside it calls `REQUIRE`, which looks

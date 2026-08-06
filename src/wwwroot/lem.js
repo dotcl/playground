@@ -272,6 +272,17 @@ async function start() {
     const booted = await exports.Playground.Boot();
     if (booted !== 'ok') throw new Error(booted);
 
+    // The editor is not in the assembly — it is a file beside this page, so that
+    // opening any other page here does not download it. A build without one
+    // serves no such file, and LemStart says so.
+    const response = await fetch('extra.core');
+    if (response.ok) {
+        say('loading the editor — it is a large image, so this takes a moment…');
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        const loaded = await exports.Playground.LoadExtraCore(bytes);
+        if (loaded !== 'ok') throw new Error(loaded);
+    }
+
     say('starting the editor…');
     const started = await exports.Playground.LemStart(COLS, ROWS);
     if (started !== 'ok') throw new Error(started);

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Common Lisp, running here</title>
+<link rel="preload" id="webassembly" />
+<script type="importmap"></script>
+<link rel="stylesheet" href="style.css">
+<script type="module" src="main.js"></script>
+</head>
+<body>
+
+<header>
+  <h1>Common Lisp, running here</h1>
+  <p class="sub">A real Common Lisp implementation, in this tab. Nothing to install.
+     Edit any block and run it — <kbd>Ctrl</kbd>+<kbd>Enter</kbd> works too.</p>
+  <p id="status">loading…</p>
+</header>
+
+<section id="shared" hidden>
+  <h2>A snippet someone shared with you</h2>
+</section>
+
+<main>
+
+<h2>It evaluates</h2>
+
+<p>Start with something that cannot be mistaken for a trick.</p>
+
+<pre class="lisp">(+ 1 2)</pre>
+
+<p>Definitions stick around. Every block on this page shares one image, so
+   anything you define here is available further down.</p>
+
+<pre class="lisp">(defun square (x)
+  (* x x))
+
+(square 12)</pre>
+
+<h2>It really is Common Lisp</h2>
+
+<p><code>format</code> is a language of its own. Here it spells a number out and
+   makes the noun agree with it — <code>~r</code> and <code>~:p</code> doing the work,
+   not the surrounding code.</p>
+
+<pre class="lisp">(format nil "~r file~:p, ~r director~:@p" 3 1)</pre>
+
+<p><code>loop</code> is another. This is one form.</p>
+
+<pre class="lisp">(loop for i from 1 to 20
+      when (zerop (mod i 15)) collect i into fizzbuzz
+      else when (evenp i) sum i into evens
+      finally (return (list :multiples-of-15 fizzbuzz :sum-of-evens evens)))</pre>
+
+<h2>Objects, and methods that do not belong to them</h2>
+
+<p>A method is not owned by a class. It is chosen by all of its arguments at once,
+   which is why this works without either class knowing about the other.</p>
+
+<pre class="lisp">(defclass square-m () ((side :initarg :side :reader side)))
+(defclass circle  () ((radius :initarg :radius :reader radius)))
+
+(defgeneric fits-in-p (inner outer))
+
+(defmethod fits-in-p ((inner square-m) (outer circle))
+  (&lt;= (* (side inner) (sqrt 2)) (* 2 (radius outer))))
+
+(defmethod fits-in-p ((inner circle) (outer square-m))
+  (&lt;= (* 2 (radius inner)) (side outer)))
+
+(list (fits-in-p (make-instance 'square-m :side 1) (make-instance 'circle :radius 1))
+      (fits-in-p (make-instance 'circle :radius 1) (make-instance 'square-m :side 1)))</pre>
+
+<h2>Errors are not the end of the story</h2>
+
+<p>Signalling an error does not immediately unwind. The code that raised the
+   problem can offer ways out, and the code that catches it picks one — while
+   everything in between is still standing.</p>
+
+<pre class="lisp">(defun parse-quantity (text)
+  (restart-case (or (parse-integer text :junk-allowed t)
+                    (error "~s is not a number" text))
+    (use-value (v) :report "Supply a value to use instead." v)
+    (treat-as-zero () :report "Pretend it said zero." 0)))
+
+(handler-bind ((error (lambda (c)
+                        (declare (ignore c))
+                        (invoke-restart 'treat-as-zero))))
+  (list (parse-quantity "17")
+        (parse-quantity "oops")))</pre>
+
+<p>Run this next one and look under the message: the error arrives carrying a list
+   of the restarts that were available. That list is what a Lisp debugger shows you.</p>
+
+<pre class="lisp">(parse-quantity "not a number at all")</pre>
+
+<h2>The language is not finished</h2>
+
+<p>Macros run at compile time and write code. Here is one that adds a construct
+   the standard does not have.</p>
+
+<pre class="lisp">(defmacro while (test &amp;body body)
+  `(loop (unless ,test (return)) ,@body))
+
+(let ((n 1) (steps '()))
+  (while (&lt; n 40)
+    (push n steps)
+    (setf n (* n 3)))
+  (nreverse steps))</pre>
+
+<p>And you can look at what it wrote.</p>
+
+<pre class="lisp">(macroexpand-1 '(while (&lt; n 40) (print n)))</pre>
+
+<h2>Your turn</h2>
+
+<p>Empty. Type anything; <em>Copy link</em> turns whatever is in the box into a URL
+   you can send to someone.</p>
+
+<pre class="lisp" data-standalone>;; Anything you like. Ctrl+Enter runs it too.
+(list (lisp-implementation-type)
+      (lisp-implementation-version)
+      (loop for s being the external-symbols of (find-package :cl) count 1))</pre>
+
+</main>
+
+<footer>
+  <p>Running on <a href="https://github.com/dotcl/dotcl">dotcl</a>, a Common Lisp
+     implementation on .NET, compiled to WebAssembly. It passes 21932 of the 21937
+     tests in the ANSI test suite.</p>
+</footer>
+
+</body>
+</html>

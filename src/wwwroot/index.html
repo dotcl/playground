@@ -3,132 +3,56 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Common Lisp, running here</title>
-<link rel="preload" id="webassembly" />
-<script type="importmap"></script>
-<link rel="stylesheet" href="style.css">
-<script type="module" src="main.js"></script>
+<title>Common Lisp in a browser tab</title>
+<style>
+  :root { --fg: #1c1c22; --dim: #5c5c6a; --bg: #fbfbfd; --card: #ffffff; --line: #e2e2ea; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg: #e4e4ec; --dim: #9a9ab0; --bg: #14141c; --card: #1e1e28; --line: #2e2e3c; }
+  }
+  html { background: var(--bg); }
+  body { margin: 0 auto; padding: 3rem 1.25rem 4rem; max-width: 46rem;
+         color: var(--fg); font-family: system-ui, sans-serif; line-height: 1.6; }
+  h1 { font-size: 1.6rem; margin: 0 0 0.5rem; }
+  .lede { color: var(--dim); margin: 0 0 2.5rem; }
+  a.demo { display: block; margin: 0 0 1rem; padding: 1rem 1.25rem; text-decoration: none;
+           color: inherit; background: var(--card); border: 1px solid var(--line);
+           border-radius: 8px; }
+  a.demo:hover { border-color: var(--dim); }
+  a.demo h2 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+  a.demo p { margin: 0; color: var(--dim); font-size: 0.9rem; }
+  .later { opacity: 0.55; }
+  footer { margin-top: 2.5rem; color: var(--dim); font-size: 0.85rem; }
+  footer a { color: inherit; }
+  code { font-family: ui-monospace, monospace; font-size: 0.9em; }
+</style>
 </head>
 <body>
 
-<header>
-  <h1>Common Lisp, running here</h1>
-  <p class="sub">A real Common Lisp implementation, in this tab. Nothing to install.
-     Edit any block and run it — <kbd>Ctrl</kbd>+<kbd>Enter</kbd> works too.</p>
-  <p id="status">loading…</p>
-</header>
+<h1>Common Lisp in a browser tab</h1>
+<p class="lede">
+  <a href="https://github.com/dotcl/dotcl">dotcl</a> — a Common Lisp implementation on
+  .NET — compiled to WebAssembly. Not a subset: 21932 of the 21937 tests in the ANSI
+  test suite pass. Nothing is installed and nothing is sent anywhere; the Lisp runs
+  in the tab.
+</p>
 
-<section id="shared" hidden>
-  <h2>A snippet someone shared with you</h2>
-</section>
+<a class="demo" href="playground.html">
+  <h2>The playground →</h2>
+  <p>Chapters you can edit and run. Errors arrive carrying restarts, and any block
+     can be shared as a link.</p>
+</a>
 
-<main>
-
-<h2>It evaluates</h2>
-
-<p>Start with something that cannot be mistaken for a trick.</p>
-
-<pre class="lisp">(+ 1 2)</pre>
-
-<p>Definitions stick around. Every block on this page shares one image, so
-   anything you define here is available further down.</p>
-
-<pre class="lisp">(defun square (x)
-  (* x x))
-
-(square 12)</pre>
-
-<h2>It really is Common Lisp</h2>
-
-<p><code>format</code> is a language of its own. Here it spells a number out and
-   makes the noun agree with it — <code>~r</code> and <code>~:p</code> doing the work,
-   not the surrounding code.</p>
-
-<pre class="lisp">(format nil "~r file~:p, ~r director~:@p" 3 1)</pre>
-
-<p><code>loop</code> is another. This is one form.</p>
-
-<pre class="lisp">(loop for i from 1 to 20
-      when (zerop (mod i 15)) collect i into fizzbuzz
-      else when (evenp i) sum i into evens
-      finally (return (list :multiples-of-15 fizzbuzz :sum-of-evens evens)))</pre>
-
-<h2>Objects, and methods that do not belong to them</h2>
-
-<p>A method is not owned by a class. It is chosen by all of its arguments at once,
-   which is why this works without either class knowing about the other.</p>
-
-<pre class="lisp">(defclass square-m () ((side :initarg :side :reader side)))
-(defclass circle  () ((radius :initarg :radius :reader radius)))
-
-(defgeneric fits-in-p (inner outer))
-
-(defmethod fits-in-p ((inner square-m) (outer circle))
-  (&lt;= (* (side inner) (sqrt 2)) (* 2 (radius outer))))
-
-(defmethod fits-in-p ((inner circle) (outer square-m))
-  (&lt;= (* 2 (radius inner)) (side outer)))
-
-(list (fits-in-p (make-instance 'square-m :side 1) (make-instance 'circle :radius 1))
-      (fits-in-p (make-instance 'circle :radius 1) (make-instance 'square-m :side 1)))</pre>
-
-<h2>Errors are not the end of the story</h2>
-
-<p>Signalling an error does not immediately unwind. The code that raised the
-   problem can offer ways out, and the code that catches it picks one — while
-   everything in between is still standing.</p>
-
-<pre class="lisp">(defun parse-quantity (text)
-  (restart-case (or (parse-integer text :junk-allowed t)
-                    (error "~s is not a number" text))
-    (use-value (v) :report "Supply a value to use instead." v)
-    (treat-as-zero () :report "Pretend it said zero." 0)))
-
-(handler-bind ((error (lambda (c)
-                        (declare (ignore c))
-                        (invoke-restart 'treat-as-zero))))
-  (list (parse-quantity "17")
-        (parse-quantity "oops")))</pre>
-
-<p>Run this next one and look under the message: the error arrives carrying a list
-   of the restarts that were available. That list is what a Lisp debugger shows you.</p>
-
-<pre class="lisp">(parse-quantity "not a number at all")</pre>
-
-<h2>The language is not finished</h2>
-
-<p>Macros run at compile time and write code. Here is one that adds a construct
-   the standard does not have.</p>
-
-<pre class="lisp">(defmacro while (test &amp;body body)
-  `(loop (unless ,test (return)) ,@body))
-
-(let ((n 1) (steps '()))
-  (while (&lt; n 40)
-    (push n steps)
-    (setf n (* n 3)))
-  (nreverse steps))</pre>
-
-<p>And you can look at what it wrote.</p>
-
-<pre class="lisp">(macroexpand-1 '(while (&lt; n 40) (print n)))</pre>
-
-<h2>Your turn</h2>
-
-<p>Empty. Type anything; <em>Copy link</em> turns whatever is in the box into a URL
-   you can send to someone.</p>
-
-<pre class="lisp" data-standalone>;; Anything you like. Ctrl+Enter runs it too.
-(list (lisp-implementation-type)
-      (lisp-implementation-version)
-      (loop for s being the external-symbols of (find-package :cl) count 1))</pre>
-
-</main>
+<a class="demo later" href="lem.html">
+  <h2>Lem, the editor</h2>
+  <p>The real editor, drawn from the messages it sends. Needs a build with threads,
+     which needs headers this host cannot send — so this link explains itself rather
+     than running, unless you build it and serve it somewhere that can.</p>
+</a>
 
 <footer>
-  <p>Running on <a href="https://github.com/dotcl/dotcl">dotcl</a>, a Common Lisp
-     implementation on .NET, compiled to WebAssembly. It passes 21932 of the 21937
-     tests in the ANSI test suite.</p>
+  <a href="https://github.com/snmsts/dotcl-playground">Source</a> — the whole site is
+  built from the published <code>DotCL.Runtime</code> package, with no binary
+  committed to it.
 </footer>
 
 </body>

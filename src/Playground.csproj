@@ -84,7 +84,6 @@
 
   <ItemGroup>
     <EmbeddedResource Include="$(DotclCore)" LogicalName="dotcl.core" />
-    <EmbeddedResource Condition="'$(ExtraCore)' != ''" Include="$(ExtraCore)" LogicalName="extra.core" />
     <EmbeddedResource Condition="'$(MimeTypes)' != ''" Include="$(MimeTypes)" LogicalName="etc/mime.types" />
     <!-- The -r2r- variants are the same module ahead-of-time compiled for one
          desktop RID; the plain .fasl is the portable IL a page can load. -->
@@ -97,6 +96,23 @@
                       LogicalName="lem-page.lisp" />
     <WasmExtraFilesToDeploy Include="wwwroot/**" />
   </ItemGroup>
+
+  <!-- The extra core is served beside the page rather than embedded in the
+       assembly, and fetched by whichever page wants it. Embedding would put it
+       inside Playground.wasm, which every page downloads — one demo carrying an
+       editor would be paid for by everyone opening the front page. It also
+       keeps the file out of this repository: it is a build input from wherever
+       it was produced, not something to commit.
+
+       Copied to a fixed name first, so the page has something to ask for that
+       does not depend on what the file was called. -->
+  <Target Name="StageExtraCore" BeforeTargets="Build" Condition="'$(ExtraCore)' != ''">
+    <Copy SourceFiles="$(ExtraCore)" DestinationFiles="$(IntermediateOutputPath)extra.core"
+          SkipUnchangedFiles="true" />
+    <ItemGroup>
+      <WasmExtraFilesToDeploy Include="$(IntermediateOutputPath)extra.core" />
+    </ItemGroup>
+  </Target>
 
   <!-- Publishing WebAssembly runs the trimmer, and the trimmer cannot see calls
        made from Lisp: a core is IL loaded at run time. dotcl protects its own
