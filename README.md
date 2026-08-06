@@ -20,7 +20,6 @@ about what this particular implementation left out.
 | `src/wwwroot/lem.html`, `lem.js` | a second page: Lem, drawn from the messages it sends |
 | `src/lem-page.lisp` | the editor's side of that — start it, take its drawing, hand it input |
 | `tools/probe-page.mjs`, `probe-lem.mjs` | open either page in headless Chrome and report what it did |
-| `assets/dotcl.core` | the Lisp image, built by dotcl and vendored here |
 
 **Writing a chapter takes no JavaScript.** Add a `<pre class="lisp">` and it becomes
 runnable. Add `data-standalone` to a block that should not drag the blocks above it
@@ -40,13 +39,11 @@ cd src
 dotnet publish -c Release
 ```
 
-Without one, the published `DotCL.Runtime` package is used instead — **which does
-not work yet**. The page hands the core to `DotclHost.LoadCore(byte[])`, because
-a page has no filesystem to give it a path to, and that overload landed after
-`0.1.22`, the newest release there is. So the CI build, which has no checkout,
-cannot succeed until a release contains it; `DotclVersion` is pinned at `0.1.23`
-in anticipation of one. This was never noticed because the workflow has never
-run.
+Without one, the published `DotCL.Runtime` package is used — which is what CI
+does, and it needs `0.1.23` or newer for two reasons. The page hands the core to
+`DotclHost.LoadCore(byte[])`, because a page has no filesystem to give it a path
+to, and it takes the core from the package rather than carrying a copy, which
+needs the package to say where its own assets are. Neither was true of `0.1.22`.
 
 Either way the output is a directory of static files:
 

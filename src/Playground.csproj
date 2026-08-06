@@ -15,7 +15,22 @@
   <PropertyGroup>
     <DotclSource Condition="'$(DotclSource)' == ''">../../dotcl/runtime/DotCL.Runtime.csproj</DotclSource>
     <DotclVersion Condition="'$(DotclVersion)' == ''">0.1.23</DotclVersion>
-    <DotclCore Condition="'$(DotclCore)' == ''">../assets/dotcl.core</DotclCore>
+  </PropertyGroup>
+
+  <!-- The base image. Not vendored here: the package ships one and, since
+       0.1.23, says where it is — DotclAssetsDir arrives from its .props, which
+       NuGet imports ahead of this file. A checkout has its own, beside the
+       runtime it was built with, so the path is derived from DotclSource rather
+       than assumed. Overridable either way for an image of your own.
+
+       Which of the two applies is decided by Exists('$(DotclSource)'), the same
+       test that decides where the runtime comes from, and not by whether
+       DotclAssetsDir happens to be set: that property arrives through a
+       restore, so a tree that has built the other way still has it and the core
+       would silently come from the wrong place. -->
+  <PropertyGroup>
+    <DotclCore Condition="'$(DotclCore)' == '' and Exists('$(DotclSource)')">$([System.IO.Path]::GetDirectoryName('$(DotclSource)'))/../compiler/dotcl.core</DotclCore>
+    <DotclCore Condition="'$(DotclCore)' == ''">$(DotclAssetsDir)dotcl.core</DotclCore>
   </PropertyGroup>
 
   <!-- A second core, loaded on top of the base one. save-application output is a

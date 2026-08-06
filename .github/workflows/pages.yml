@@ -1,8 +1,9 @@
 name: Publish the playground
 
 # The build produces plain static files, so Pages just serves the publish output.
-# The Lisp image is vendored in assets/, and the runtime comes from the published
-# DotCL.Runtime package — nothing here needs a dotcl checkout or a Lisp host.
+# Both the runtime and the Lisp image come from the published DotCL.Runtime
+# package, which ships the image and says where it is — nothing here needs a
+# dotcl checkout, a Lisp host, or a binary committed to this repository.
 
 on:
   push:
