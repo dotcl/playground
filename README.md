@@ -100,9 +100,9 @@ core into the page on top of the one vendored here:
 
 ```sh
 dotnet publish -c Release \
-  -p:ExtraCore=../../lem-dotcl-probe/lem-app.core \
-  -p:ContribModules='../../dotcl/contrib/*/*.fasl' \
-  -p:MimeTypes=.../trivial-mimes/mime.types
+  -p:ExtraCore=path/to/whatever-save-application-produced.core \
+  -p:ContribModules='$(DotclAssetsDir)contrib/*/*.fasl' \
+  -p:MimeTypes=path/to/trivial-mimes/mime.types
 ```
 
 Nothing here is about Lem. `ExtraCore` is whatever `save-application` produced,

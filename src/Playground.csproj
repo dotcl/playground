@@ -37,7 +37,7 @@
        closure over the systems it was built from, not a whole image, so it adds
        to the base core rather than replacing it. Nothing here knows or cares
        what is in it — Lem is only the largest thing tried:
-         -p:ExtraCore=../../lem-dotcl-probe/lem-app.core
+         -p:ExtraCore=path/to/whatever-save-application-produced.core
        Off unless asked for, because an image is large enough to change what the
        page costs to open, and the page has to stay something worth opening. -->
   <PropertyGroup>
@@ -58,7 +58,10 @@
        program — finds nothing, and REQUIRE is not optional: a core built from
        asdf systems asks ASDF for its own versions as it loads. They are carried
        as bytes and written to the in-memory filesystem at boot.
-         -p:ContribModules=../../dotcl-fixer/contrib/*/*.fasl -->
+         -p:ContribModules='$(DotclAssetsDir)contrib/*/*.fasl'
+       The package ships them, so this needs nothing checked out. Building
+       against a checkout instead, DotclAssetsDir is empty and that glob quietly
+       matches nothing — point it at the checkout's own contrib/ there. -->
   <PropertyGroup>
     <ContribModules Condition="'$(ContribModules)' == ''"></ContribModules>
   </PropertyGroup>
