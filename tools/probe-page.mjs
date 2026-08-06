@@ -80,7 +80,10 @@ ws.addEventListener('message', (ev) => {
   }
   if (m.method === 'Log.entryAdded') {
     const e = m.params.entry;
-    if (e.level === 'error' || e.level === 'warning') console_.push(`[${e.level}] ${e.text}`);
+    // With the URL: "failed to load resource" says nothing on its own, and the
+    // one that matters is never the favicon.
+    if (e.level === 'error' || e.level === 'warning')
+      console_.push(`[${e.level}] ${e.text}${e.url ? ' — ' + e.url : ''}`);
   }
 });
 
