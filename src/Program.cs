@@ -24,7 +24,16 @@ public static partial class Playground
     /// what went wrong — the page shows it either way rather than failing
     /// silently on a blank screen.</summary>
     [JSExport]
-    public static Task<string> Boot() => Task.Run(BootCore);
+    public static async Task<string> Boot()
+    {
+        var booted = await Task.Run(BootCore);
+        if (booted != "ok") return booted;
+        // The bridge comes up with the image rather than on request: a page
+        // whose JS: functions fail until something else has been called is a
+        // trap, not a feature.
+        var bridged = await LoadBridge();
+        return bridged == "ok" ? await LoadJsLisp() : bridged;
+    }
 
     private static string BootCore()
     {
@@ -106,6 +115,126 @@ public static partial class Playground
         }
         catch (Exception e) { return "loading the image failed:" + Chain(e); }
     });
+
+    // ── JavaScript ───────────────────────────────────────────────────────────
+    //
+    // Five imports and a loader, and nothing here knows what a canvas is. The
+    // shim they point at is js-bridge.js; the vocabulary on top of them —
+    // documents, elements, contexts — is written in Lisp, where it can be added
+    // to without rebuilding anything.
+    //
+    // The wrappers are public and take plain object because that is what Lisp
+    // reaches: dotnet:invoke finds a method by name on a public type.
+
+    private const string Bridge = "dotcl-js";
+    private static bool _bridgeLoaded;
+
+    /// <summary>Make the shim available. Idempotent; the page calls it once.</summary>
+    [JSExport]
+    public static async Task<string> LoadBridge()
+    {
+        if (_bridgeLoaded) return "ok";
+        try
+        {
+            // Relative to _framework/, where the loader lives — not to the page.
+            // "./js-bridge.js" looks for it inside _framework/ and fails; a
+            // leading slash would work locally and break wherever the site is
+            // served under a path, which is where it is served.
+            await JSHost.ImportAsync(Bridge, "../js-bridge.js");
+            _bridgeLoaded = true;
+            return "ok";
+        }
+        catch (Exception e) { return "the JavaScript bridge did not load:" + Chain(e); }
+    }
+
+    /// <summary>Fetch js.lisp from beside the page and load it. It is served
+    /// rather than embedded so that the layer meant to be added to can be
+    /// edited and reloaded, instead of costing a rebuild per line.</summary>
+    private static async Task<string> LoadJsLisp()
+    {
+        try
+        {
+            // Where the page is, asked of the browser directly — JSObject can
+            // read properties without the bridge, and this runs whether or not
+            // the bridge is there. Relative to the document, so it is right
+            // both at a site root and under a path.
+            var href = JSHost.GlobalThis
+                .GetPropertyAsJSObject("location")
+                .GetPropertyAsString("href");
+            using var http = new System.Net.Http.HttpClient();
+            var source = await http.GetStringAsync(new Uri(new Uri(href), "js.lisp"));
+            File.WriteAllText("/js.lisp", source);
+            DotclHost.EvalString("(load \"/js.lisp\")");
+            return "ok";
+        }
+        catch (Exception e) { return "js.lisp did not load:" + Chain(e); }
+    }
+
+    [JSImport("get", Bridge)]
+    [return: JSMarshalAs<JSType.Any>]
+    internal static partial object BridgeGet(JSObject target, string name);
+
+    [JSImport("set", Bridge)]
+    internal static partial void BridgeSet(JSObject target, string name,
+        [JSMarshalAs<JSType.Any>] object value);
+
+    [JSImport("call0", Bridge)]
+    [return: JSMarshalAs<JSType.Any>]
+    internal static partial object BridgeCall0(JSObject target, string name);
+
+    [JSImport("call1", Bridge)]
+    [return: JSMarshalAs<JSType.Any>]
+    internal static partial object BridgeCall1(JSObject target, string name,
+        [JSMarshalAs<JSType.Any>] object a);
+
+    [JSImport("call2", Bridge)]
+    [return: JSMarshalAs<JSType.Any>]
+    internal static partial object BridgeCall2(JSObject target, string name,
+        [JSMarshalAs<JSType.Any>] object a, [JSMarshalAs<JSType.Any>] object b);
+
+    [JSImport("call3", Bridge)]
+    [return: JSMarshalAs<JSType.Any>]
+    internal static partial object BridgeCall3(JSObject target, string name,
+        [JSMarshalAs<JSType.Any>] object a, [JSMarshalAs<JSType.Any>] object b,
+        [JSMarshalAs<JSType.Any>] object c);
+
+    [JSImport("call4", Bridge)]
+    [return: JSMarshalAs<JSType.Any>]
+    internal static partial object BridgeCall4(JSObject target, string name,
+        [JSMarshalAs<JSType.Any>] object a, [JSMarshalAs<JSType.Any>] object b,
+        [JSMarshalAs<JSType.Any>] object c, [JSMarshalAs<JSType.Any>] object d);
+
+    [JSImport("call5", Bridge)]
+    [return: JSMarshalAs<JSType.Any>]
+    internal static partial object BridgeCall5(JSObject target, string name,
+        [JSMarshalAs<JSType.Any>] object a, [JSMarshalAs<JSType.Any>] object b,
+        [JSMarshalAs<JSType.Any>] object c, [JSMarshalAs<JSType.Any>] object d,
+        [JSMarshalAs<JSType.Any>] object e);
+
+    [JSImport("call6", Bridge)]
+    [return: JSMarshalAs<JSType.Any>]
+    internal static partial object BridgeCall6(JSObject target, string name,
+        [JSMarshalAs<JSType.Any>] object a, [JSMarshalAs<JSType.Any>] object b,
+        [JSMarshalAs<JSType.Any>] object c, [JSMarshalAs<JSType.Any>] object d,
+        [JSMarshalAs<JSType.Any>] object e, [JSMarshalAs<JSType.Any>] object f);
+
+    /// <summary>globalThis — where reaching anything else starts.</summary>
+    public static JSObject JsGlobal() => JSHost.GlobalThis;
+
+    public static object JsGet(JSObject t, string name) => BridgeGet(t, name);
+    public static void JsSet(JSObject t, string name, object v) => BridgeSet(t, name, v);
+    public static object JsCall(JSObject t, string name) => BridgeCall0(t, name);
+    public static object JsCall(JSObject t, string name, object a) => BridgeCall1(t, name, a);
+    public static object JsCall(JSObject t, string name, object a, object b)
+        => BridgeCall2(t, name, a, b);
+    public static object JsCall(JSObject t, string name, object a, object b, object c)
+        => BridgeCall3(t, name, a, b, c);
+    public static object JsCall(JSObject t, string name, object a, object b, object c, object d)
+        => BridgeCall4(t, name, a, b, c, d);
+    public static object JsCall(JSObject t, string name, object a, object b, object c, object d,
+        object e) => BridgeCall5(t, name, a, b, c, d, e);
+    public static object JsCall(JSObject t, string name, object a, object b, object c, object d,
+        object e, object f) => BridgeCall6(t, name, a, b, c, d, e, f);
 
     // ── the editor ───────────────────────────────────────────────────────────
     //

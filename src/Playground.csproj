@@ -94,6 +94,10 @@
     <EmbeddedResource Include="prelude.lisp" LogicalName="prelude.lisp" />
     <EmbeddedResource Condition="'$(LemPage)' != ''" Include="lem-page.lisp"
                       LogicalName="lem-page.lisp" />
+    <!-- Served beside the pages rather than embedded, because it is the layer
+         meant to be added to: fetched at boot, it can be edited and reloaded.
+         Embedded it would have been a rebuild per line. -->
+    <WasmExtraFilesToDeploy Include="js.lisp" />
     <WasmExtraFilesToDeploy Include="wwwroot/**" />
   </ItemGroup>
 

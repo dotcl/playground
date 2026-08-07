@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drawing, from Lisp</title>
+<link rel="preload" id="webassembly" />
+<script type="importmap"></script>
+<script type="module" src="canvas.js"></script>
+<style>
+  :root { --fg: #1c1c22; --dim: #5c5c6a; --bg: #fbfbfd; --line: #e2e2ea; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg: #e4e4ec; --dim: #9a9ab0; --bg: #14141c; --line: #2e2e3c; }
+  }
+  html { background: var(--bg); }
+  body { margin: 0 auto; padding: 2.5rem 1.25rem 4rem; max-width: 46rem;
+         color: var(--fg); font-family: system-ui, sans-serif; line-height: 1.6; }
+  h1 { font-size: 1.4rem; margin: 0 0 0.4rem; }
+  p { color: var(--dim); margin: 0 0 1.25rem; }
+  #status { font-size: 0.9rem; }
+  #status.ready { color: #3a8a3a; }
+  #status.broken { color: #b04a4a; white-space: pre-wrap; }
+  canvas { display: block; width: 100%; max-width: 640px; height: auto;
+           background: #101018; border: 1px solid var(--line); border-radius: 6px; }
+  pre { overflow-x: auto; padding: 1rem; background: rgba(128,128,150,0.12);
+        border-radius: 6px; font-size: 0.85rem; line-height: 1.45; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+
+<h1>Drawing, from Lisp</h1>
+<p>Every pixel below is placed by the Common Lisp in this page — the source is in a
+   <code>&lt;script type="text/common-lisp"&gt;</code> tag, which the browser leaves
+   alone and the Lisp picks up once it is running. Nothing here is JavaScript.</p>
+
+<p id="status">loading…</p>
+
+<canvas id="screen" width="640" height="400"></canvas>
+
+<script type="text/common-lisp">
+(let* ((canvas (js:query "#screen"))
+       (ctx (js:call canvas "getContext" "2d"))
+       (w (js:ref canvas "width"))
+       (h (js:ref canvas "height"))
+       (started (get-internal-real-time))
+       (cells 0))
+  (flet ((fill-style (colour) (setf (js:ref ctx "fillStyle") colour))
+         (box (x y w h) (js:call ctx "fillRect" x y w h)))
+    (fill-style "#101018")
+    (box 0 0 w h)
+    ;; A plot of (mod (* x y) n) — cheap to compute, and the moire it makes is a
+    ;; better test of throughput than a gradient: every cell is a separate call
+    ;; across the bridge.
+    (loop for gy below 50 do
+      (loop for gx below 80 do
+        (let* ((v (mod (* (1+ gx) (1+ gy)) 17))
+               (shade (round (* 255 (/ v 16)))))
+          (fill-style (format nil "rgb(~d,~d,~d)" (- 255 shade) (round (/ shade 2)) shade))
+          (box (* gx 8) (* gy 8) 8 8)
+          (incf cells))))
+    (fill-style "#f0f0f8")
+    (setf (js:ref ctx "font") "16px system-ui")
+    (js:call ctx "fillText"
+             (format nil "~d cells in ~,1f ms" cells
+                     (/ (- (get-internal-real-time) started)
+                        (/ internal-time-units-per-second 1000.0)))
+             12 388)))
+</script>
+
+<p>The vocabulary it uses — <code>js:query</code>, <code>js:call</code>,
+   <code>js:ref</code> — is Lisp, in <code>js.lisp</code>, standing on five
+   imported shim functions. That file is served beside this page rather than
+   built into it, so adding to it is editing Lisp and reloading. What the
+   browser gives you is reached by name at run time, which is why the list is
+   short and can grow. <a href="./">Back</a></p>
+
+</body>
+</html>
