@@ -23,7 +23,9 @@
   canvas { display: block; width: 100%; max-width: 640px; height: auto;
            background: #101018; border: 1px solid var(--line); border-radius: 6px; }
   pre { overflow-x: auto; padding: 1rem; background: rgba(128,128,150,0.12);
-        border-radius: 6px; font-size: 0.85rem; line-height: 1.45; }
+        border-radius: 6px; font-size: 0.85rem; line-height: 1.45;
+        font-family: ui-monospace, "Cascadia Mono", monospace; }
+  .caption { margin: 1.5rem 0 0.5rem; font-size: 0.9rem; }
   a { color: inherit; }
 </style>
 </head>
@@ -38,7 +40,10 @@
 
 <canvas id="screen" width="640" height="400"></canvas>
 
-<script type="text/common-lisp">
+<p class="caption">The code that drew it, read out of the page by itself:</p>
+<pre id="source">…</pre>
+
+<script type="text/common-lisp" id="drawing">
 (let* ((canvas (js:query "#screen"))
        (ctx (js:call canvas "getContext" "2d"))
        (w (js:ref canvas "width"))
@@ -65,7 +70,12 @@
              (format nil "~d cells in ~,1f ms" cells
                      (/ (- (get-internal-real-time) started)
                         (/ internal-time-units-per-second 1000.0)))
-             12 388)))
+             12 388))
+
+  ;; And then print itself. Not a copy of the source kept in step by hand — the
+  ;; same element the runtime read this from, so what is shown is what ran.
+  (setf (js:text (js:query "#source"))
+        (string-trim '(#\Newline #\Space) (js:ref (js:query "#drawing") "textContent"))))
 </script>
 
 <p>The vocabulary it uses — <code>js:query</code>, <code>js:call</code>,
