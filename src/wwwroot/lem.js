@@ -263,6 +263,8 @@ screen.addEventListener('keydown', async (e) => {
 // ── start ────────────────────────────────────────────────────────────────────
 
 async function start() {
+    // coi.js is reloading the page through its worker; this copy is discarded.
+    if (await window.coi) return new Promise(() => {});
     say('fetching the runtime…');
     const { dotnet } = await import('./_framework/dotnet.js');
     const { getAssemblyExports, getConfig } = await dotnet.create();

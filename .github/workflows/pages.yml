@@ -35,7 +35,9 @@ jobs:
       # browser app targets this project is built on.
       - run: dotnet workload install wasm-tools wasm-experimental
 
-      - run: dotnet publish src/Playground.csproj -c Release
+      # Threaded, so a long block does not freeze the tab. Pages cannot send the
+      # headers threads need; coi-sw.js makes them in the browser instead.
+      - run: dotnet publish src/Playground.csproj -c Release -p:WasmEnableThreads=true
 
       # What was actually built, on the run's summary page rather than buried in
       # the log. A page whose whole point is that it downloads a Lisp is one

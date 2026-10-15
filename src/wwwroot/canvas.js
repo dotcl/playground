@@ -11,6 +11,8 @@ const status = document.getElementById('status');
 const say = (text, cls) => { status.textContent = text; if (cls) status.classList.add(cls); };
 
 async function start() {
+    // coi.js is reloading the page through its worker; this copy is discarded.
+    if (await window.coi) return new Promise(() => {});
     say('fetching the runtime…');
     const { dotnet } = await import('./_framework/dotnet.js');
     const { getAssemblyExports, getConfig } = await dotnet.create();

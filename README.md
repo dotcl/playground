@@ -15,6 +15,7 @@ about what this particular implementation left out.
 | `src/wwwroot/index.html` | the front page: what is here, and links to it |
 | `src/wwwroot/playground.html` | the material. Prose plus `<pre class="lisp">` blocks |
 | `src/wwwroot/main.js` | turns those blocks into editors with a Run button |
+| `src/wwwroot/coi.js`, `coi-sw.js` | the headers threads need, made in the browser because Pages cannot send them |
 | `src/prelude.lisp` | `PLAYGROUND:RUN` — reads, evaluates, and reports back |
 | `src/Program.cs` | boots the Lisp core and hands blocks to it |
 | `src/trimmer-roots.xml` | .NET types the Lisp reaches by name, which the trimmer cannot see |
@@ -82,9 +83,24 @@ Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
 
-GitHub Pages cannot send headers, so the workflow here builds the single-threaded
-page. A host that can send them (Netlify, Cloudflare Pages, anything of your own)
-gets the responsive one from the same source — add `-p:WasmEnableThreads=true`.
+GitHub Pages cannot send headers, so the pages make them in the browser instead.
+`coi-sw.js` is a service worker that adds them to every response, and once a
+response comes from the worker, what the server sent stops mattering. `coi.js`
+registers it ahead of anything else on the page. The headers are fixed when the
+document arrives, so the page already open cannot benefit: a first visit reloads
+once, through the worker, and later visits arrive through it from the start.
+Measured in headless Chrome against a server sending no headers at all: one
+reload, `crossOriginIsolated` true, boot time unchanged at about 1.5 s, and 60fps
+while a block runs. The workflow builds with `-p:WasmEnableThreads=true`.
+
+What this costs is the reader whose browser will not run the worker — Firefox in
+a private window, or a hard reload, which bypasses it. A threaded build cannot
+start without `SharedArrayBuffer`, so that reader gets a page whose Lisp does
+not start (not yet observed — how it shows is untested), where the
+single-threaded build would have run. `coi.js` reloads only
+once per session, so it does not loop. A host that can send the headers itself
+(Cloudflare Pages, Netlify, anything of your own) needs none of this, and the
+worker does no harm there.
 
 Running in a dedicated worker instead would have avoided the headers, but does not
 work at all: `dotnet.create()` never settles there, because a worker has no
@@ -144,11 +160,9 @@ modified for the page.
 It needs `-p:WasmEnableThreads=true`, and that is not a preference: the editor
 takes a thread of its own and blocks it, so a single-threaded build cannot start
 it at all. Threads need `SharedArrayBuffer`, which needs the two headers in the
-section above, so the Lem page needs a host that can send them and the
-playground does not. GitHub Pages cannot. The known way around that is a service
-worker synthesizing the headers in the browser — what the server sent stops
-mattering once the response the page sees comes from the worker — at the cost of
-one automatic reload on a first visit. Untested here.
+section above. `lem.html` gets them from the same service worker as the other
+pages. What keeps it off GitHub Pages is the 40 MB core instead, which the
+workflow does not build.
 
 `lem.html` is deployed with the rest of `wwwroot` whether or not the image can
 answer it, and says so rather than failing obscurely when it cannot.
@@ -184,7 +198,8 @@ the keyboard.
 Real ones, worth knowing before you plan a chapter around something:
 
 - no sockets, no subprocesses, no native FFI
-- no threads on GitHub Pages (they need headers Pages cannot set; elsewhere they work)
+- threads need a browser that will run a service worker, unless the host sends
+  the headers itself (see above)
 - Quicklisp does not work in the page; the image is what you get
 - about three to five times slower than the same code on the desktop
 - roughly 3.5 MB to download the first time, then cached
