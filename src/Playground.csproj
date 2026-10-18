@@ -14,7 +14,7 @@
        package is used, which is what CI gets. -->
   <PropertyGroup>
     <DotclSource Condition="'$(DotclSource)' == ''">../../dotcl/runtime/DotCL.Runtime.csproj</DotclSource>
-    <DotclVersion Condition="'$(DotclVersion)' == ''">0.1.23</DotclVersion>
+    <DotclVersion Condition="'$(DotclVersion)' == ''">0.1.34</DotclVersion>
   </PropertyGroup>
 
   <!-- The base image. Not vendored here: the package ships one and, since
