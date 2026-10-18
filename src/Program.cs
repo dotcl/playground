@@ -265,6 +265,83 @@ public static partial class Playground
         => Task.Run(() => DotclHost.EvalString(
             "(lem-page:deliver-message " + Literal(json) + ")"));
 
+    // ── the REPL ─────────────────────────────────────────────────────────────
+    //
+    // dotcl-repl with an xterm in the page for a terminal; repl-page.lisp says
+    // how it is wired. Keys go from the page into a queue the REPL's thread
+    // waits on; what the REPL writes collects here until the page takes it.
+    // Both sides are here so that neither the page nor the Lisp has to know
+    // which thread the other is on.
+
+    private static readonly System.Collections.Concurrent.BlockingCollection<ConsoleKeyInfo> _keys = new();
+    private static readonly System.Text.StringBuilder _screen = new();
+    private static volatile int _cols = 80, _rows = 24;
+
+    /// <summary>Start the REPL at this size. "ok", or why not.</summary>
+    [JSExport]
+    public static Task<string> ReplStart(int cols, int rows) => Task.Run(() =>
+    {
+        _cols = cols; _rows = rows;
+        try
+        {
+            LoadLisp(Assembly.GetExecutingAssembly(), "repl-page.lisp", "/repl-page.lisp");
+            return Text(DotclHost.EvalString("(repl-page:start)"));
+        }
+        catch (Exception e) { return "the REPL did not start:" + Chain(e); }
+    });
+
+    /// <summary>One key, as Console.ReadKey would have returned it. The page
+    /// has already turned the browser's key event into these terms.</summary>
+    [JSExport]
+    public static Task ReplKey(int ch, int key, bool shift, bool alt, bool control)
+    {
+        _keys.Add(new ConsoleKeyInfo((char)ch, (ConsoleKey)key, shift, alt, control));
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Everything the REPL has written since the last call.</summary>
+    [JSExport]
+    public static Task<string> ReplDrain()
+    {
+        lock (_screen)
+        {
+            var s = _screen.ToString();
+            _screen.Clear();
+            return Task.FromResult(s);
+        }
+    }
+
+    [JSExport]
+    public static Task ReplResize(int cols, int rows)
+    {
+        _cols = cols; _rows = rows;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>One contrib module the page fetched, as name.fasl and its bytes,
+    /// written where REQUIRE will find it. Before ReplStart, which REQUIREs
+    /// them.</summary>
+    [JSExport]
+    public static Task<string> ReplAddContrib(string file, byte[] fasl) => Task.Run(() =>
+    {
+        try { WriteContrib(ContribRoot, file, new MemoryStream(fasl)); return "ok"; }
+        catch (Exception e) { return "could not add " + file + ":" + Chain(e); }
+    });
+
+    /// <summary>Interrupt the form being evaluated, as Ctrl+C does at a
+    /// console. "t", or "nil" when nothing was being evaluated — the REPL was
+    /// waiting for a key, and Ctrl+C should go to it as a key instead.</summary>
+    [JSExport]
+    public static Task<string> ReplInterrupt() => Task.Run(() =>
+        Text(DotclHost.EvalString("(if (dotcl-repl:interrupt-repl) \"t\" \"nil\")")));
+
+    // The terminal's side, called from repl-page.lisp on the REPL's thread.
+    public static ConsoleKeyInfo ReplReadKey() => _keys.Take();
+    public static bool ReplKeyAvailable() => _keys.Count > 0;
+    public static void ReplWrite(string s) { lock (_screen) _screen.Append(s); }
+    public static int ReplWidth() => _cols;
+    public static int ReplHeight() => _rows;
+
     /// <summary>Load an embedded Lisp file through the filesystem, if it is
     /// there. Through a file rather than as one string because these define a
     /// package and then read symbols in it: the reader must not run ahead of
@@ -288,19 +365,25 @@ public static partial class Playground
     /// Does nothing when none were embedded.</summary>
     private static void UnpackContrib(Assembly asm, string root)
     {
-        var any = false;
         foreach (var resource in asm.GetManifestResourceNames())
         {
             if (!resource.StartsWith("contrib/")) continue;
-            var file = resource.Substring("contrib/".Length);
-            var dir = Path.Combine(root, Path.GetFileNameWithoutExtension(file));
-            Directory.CreateDirectory(dir);
-            using (var s = asm.GetManifestResourceStream(resource))
-            using (var f = File.Create(Path.Combine(dir, file)))
-                s.CopyTo(f);
-            any = true;
+            using var s = asm.GetManifestResourceStream(resource);
+            WriteContrib(root, resource.Substring("contrib/".Length), s);
         }
-        if (any) Runtime.ContribExtraSearchPaths.Add(root);
+    }
+
+    /// <summary>Write one module as root/name/name.fasl, and point dotcl's
+    /// module search at root the first time.</summary>
+    private static void WriteContrib(string root, string file, Stream s)
+    {
+        var dir = Path.Combine(root, Path.GetFileNameWithoutExtension(file));
+        Directory.CreateDirectory(dir);
+        using (var f = File.Create(Path.Combine(dir, file)))
+            s.CopyTo(f);
+        lock (Runtime.ContribExtraSearchPaths)
+            if (!Runtime.ContribExtraSearchPaths.Contains(root))
+                Runtime.ContribExtraSearchPaths.Add(root);
     }
 
     /// <summary>Write one embedded file to the in-memory filesystem, if it was

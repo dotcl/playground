@@ -66,6 +66,16 @@
     <ContribModules Condition="'$(ContribModules)' == ''"></ContribModules>
   </PropertyGroup>
 
+  <!-- The same modules again, but served beside the pages as contrib/name.fasl
+       instead of embedded: a page that wants some fetches them, and the pages
+       that do not pay nothing. Embedded, every module would be in the assembly
+       every page downloads. From the package, or from a checkout's contrib/
+       when one is used, by the same Exists test as the core. -->
+  <PropertyGroup>
+    <ReplContrib Condition="'$(ReplContrib)' == '' and Exists('$(DotclSource)')">$([System.IO.Path]::GetDirectoryName('$(DotclSource)'))/../contrib/</ReplContrib>
+    <ReplContrib Condition="'$(ReplContrib)' == ''">$(DotclAssetsDir)contrib/</ReplContrib>
+  </PropertyGroup>
+
   <!-- A data file the image expects to find on disk. trivial-mimes reads
        /etc/mime.types as it loads and signals an error when it is not there,
        so any image containing it needs the file written to the page's
@@ -94,11 +104,19 @@
     <EmbeddedResource Include="prelude.lisp" LogicalName="prelude.lisp" />
     <EmbeddedResource Condition="'$(LemPage)' != ''" Include="lem-page.lisp"
                       LogicalName="lem-page.lisp" />
+    <!-- Loaded only when repl.html asks, so it costs the other pages nothing
+         but its bytes. It REQUIREs dotcl-gray and dotcl-repl, and dotcl-repl
+         REQUIREs dotcl-code-info if it can: without it TAB completes nothing.
+         repl.js fetches those from contrib/, deployed just below, before it
+         starts. -->
+    <EmbeddedResource Include="repl-page.lisp" LogicalName="repl-page.lisp" />
     <!-- Served beside the pages rather than embedded, because it is the layer
          meant to be added to: fetched at boot, it can be edited and reloaded.
          Embedded it would have been a rebuild per line. -->
     <WasmExtraFilesToDeploy Include="js.lisp" />
     <WasmExtraFilesToDeploy Include="wwwroot/**" />
+    <WasmExtraFilesToDeploy Include="$(ReplContrib)*/*.fasl" Exclude="**/*-r2r-*.fasl"
+                            TargetPath="contrib/%(Filename)%(Extension)" />
   </ItemGroup>
 
   <!-- The extra core is served beside the page rather than embedded in the

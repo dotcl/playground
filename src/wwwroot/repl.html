@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A Lisp REPL, running here</title>
+<link rel="preload" id="webassembly" />
+<script type="importmap"></script>
+<script src="coi.js"></script>
+<!-- crossorigin: the page is cross-origin isolated, and under require-corp a
+     script from another origin loads only when fetched with CORS. -->
+<link rel="stylesheet" crossorigin="anonymous"
+      href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css">
+<script crossorigin="anonymous"
+        src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
+<script crossorigin="anonymous"
+        src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
+<script type="module" src="repl.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: #14141c; color: #dcdcdc;
+               font-family: system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; }
+  header { padding: 1rem 1.25rem 0.5rem; }
+  h1 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+  #status { margin: 0.25rem 0 0; font-size: 0.85rem; color: #9a9ab0; }
+  #status.broken { color: #ff8080; }
+  .limits { margin: 0.25rem 0 0; font-size: 0.8rem; color: #7a7a90; }
+  .limits code { font-family: ui-monospace, monospace; }
+  #terminal { flex: 1; min-height: 0; padding: 0 0.5rem 0.5rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>A Lisp REPL, running here</h1>
+  <p id="status">loading…</p>
+  <p class="limits">A page cannot open sockets or start processes, so the
+     commands that need them — <code>,ql</code>, the <code>;</code> shell — do
+     not work here, and <code>require</code> finds only the modules this page
+     brought with it.</p>
+</header>
+<div id="terminal"></div>
+</body>
+</html>

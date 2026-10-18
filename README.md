@@ -21,6 +21,8 @@ about what this particular implementation left out.
 | `src/trimmer-roots.xml` | .NET types the Lisp reaches by name, which the trimmer cannot see |
 | `src/wwwroot/lem.html`, `lem.js` | a second page: Lem, drawn from the messages it sends |
 | `src/lem-page.lisp` | the editor's side of that — start it, take its drawing, hand it input |
+| `src/wwwroot/repl.html`, `repl.js` | dotcl's own REPL on an xterm; fetches the contrib modules it needs from `contrib/` |
+| `src/repl-page.lisp` | the terminal under that REPL — where its keys come from, where its text goes |
 | `tools/probe-page.mjs`, `probe-lem.mjs` | open either page in headless Chrome and report what it did |
 
 **Writing a chapter takes no JavaScript.** Add a `<pre class="lisp">` and it becomes

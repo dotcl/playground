@@ -29,4 +29,11 @@
     <type fullname="System.Runtime.InteropServices.OSPlatform" preserve="all" />
     <type fullname="System.Runtime.InteropServices.RuntimeInformation" preserve="all" />
   </assembly>
+  <!-- dotcl-repl reads the keys repl.html hands it by reflection: KeyChar, Key
+       and Modifiers, and the enums' names through ToString. -->
+  <assembly fullname="System.Console">
+    <type fullname="System.ConsoleKeyInfo" preserve="all" />
+    <type fullname="System.ConsoleKey" preserve="all" />
+    <type fullname="System.ConsoleModifiers" preserve="all" />
+  </assembly>
 </linker>
