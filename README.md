@@ -8,6 +8,9 @@ It runs [dotcl](https://github.com/dotcl/dotcl) — a Common Lisp implementation
 test suite pass, so the page can teach what the standard says without footnotes
 about what this particular implementation left out.
 
+Lisp in the page reaches the page itself through the `js:` package, whose names
+are those of clysm's: [Calling JavaScript from Lisp](docs/javascript.md).
+
 ## How it is put together
 
 | | |
@@ -17,7 +20,9 @@ about what this particular implementation left out.
 | `src/wwwroot/main.js` | turns those blocks into editors with a Run button |
 | `src/wwwroot/coi.js`, `coi-sw.js` | the headers threads need, made in the browser because Pages cannot send them |
 | `src/prelude.lisp` | `PLAYGROUND:RUN` — reads, evaluates, and reports back |
-| `src/Program.cs` | boots the Lisp core and hands blocks to it |
+| `src/Program.cs` | boots the Lisp core and hands blocks to it; converts values crossing to JavaScript |
+| `src/js.lisp` | the `js:` package; served beside the pages, so it can be edited and reloaded |
+| `src/wwwroot/js-bridge.js` | the few JavaScript functions `js:` stands on |
 | `src/trimmer-roots.xml` | .NET types the Lisp reaches by name, which the trimmer cannot see |
 | `src/wwwroot/lem.html`, `lem.js` | a second page: Lem, drawn from the messages it sends |
 | `src/lem-page.lisp` | the editor's side of that — start it, take its drawing, hand it input |
