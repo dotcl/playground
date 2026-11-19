@@ -118,10 +118,10 @@ public static partial class Playground
 
     // ── JavaScript ───────────────────────────────────────────────────────────
     //
-    // Five imports and a loader, and nothing here knows what a canvas is. The
-    // shim they point at is js-bridge.js; the vocabulary on top of them —
-    // documents, elements, contexts — is written in Lisp, where it can be added
-    // to without rebuilding anything.
+    // A few imports, the conversion of values across them, and a loader; nothing
+    // here knows what a canvas is. The shim they point at is js-bridge.js; the
+    // vocabulary on top of them — documents, elements, contexts — is written in
+    // Lisp, where it can be added to without rebuilding anything.
     //
     // The wrappers are public and take plain object because that is what Lisp
     // reaches: dotnet:invoke finds a method by name on a public type.
@@ -170,71 +170,212 @@ public static partial class Playground
         catch (Exception e) { return "js.lisp did not load:" + Chain(e); }
     }
 
+    [JSImport("undefinedMarker", Bridge)]
+    internal static partial JSObject BridgeUndefined();
+
+    [JSImport("lastThrown", Bridge)]
+    [return: JSMarshalAs<JSType.Any>]
+    internal static partial object BridgeLastThrown();
+
+    [JSImport("nameOf", Bridge)]
+    internal static partial string BridgeNameOf([JSMarshalAs<JSType.Any>] object e);
+
+    [JSImport("messageOf", Bridge)]
+    internal static partial string BridgeMessageOf([JSMarshalAs<JSType.Any>] object e);
+
     [JSImport("get", Bridge)]
     [return: JSMarshalAs<JSType.Any>]
-    internal static partial object BridgeGet(JSObject target, string name);
+    internal static partial object BridgeGet([JSMarshalAs<JSType.Any>] object target,
+        [JSMarshalAs<JSType.Any>] object key);
 
     [JSImport("set", Bridge)]
-    internal static partial void BridgeSet(JSObject target, string name,
-        [JSMarshalAs<JSType.Any>] object value);
+    internal static partial void BridgeSet([JSMarshalAs<JSType.Any>] object target,
+        [JSMarshalAs<JSType.Any>] object key, [JSMarshalAs<JSType.Any>] object value);
 
-    [JSImport("call0", Bridge)]
+    [JSImport("call", Bridge)]
     [return: JSMarshalAs<JSType.Any>]
-    internal static partial object BridgeCall0(JSObject target, string name);
+    internal static partial object BridgeCall([JSMarshalAs<JSType.Any>] object target,
+        [JSMarshalAs<JSType.Any>] object key,
+        [JSMarshalAs<JSType.Array<JSType.Any>>] object[] args);
 
-    [JSImport("call1", Bridge)]
+    [JSImport("apply", Bridge)]
     [return: JSMarshalAs<JSType.Any>]
-    internal static partial object BridgeCall1(JSObject target, string name,
-        [JSMarshalAs<JSType.Any>] object a);
+    internal static partial object BridgeApply([JSMarshalAs<JSType.Any>] object function,
+        [JSMarshalAs<JSType.Array<JSType.Any>>] object[] args);
 
-    [JSImport("call2", Bridge)]
+    [JSImport("construct", Bridge)]
     [return: JSMarshalAs<JSType.Any>]
-    internal static partial object BridgeCall2(JSObject target, string name,
-        [JSMarshalAs<JSType.Any>] object a, [JSMarshalAs<JSType.Any>] object b);
+    internal static partial object BridgeConstruct([JSMarshalAs<JSType.Any>] object constructor,
+        [JSMarshalAs<JSType.Array<JSType.Any>>] object[] args);
 
-    [JSImport("call3", Bridge)]
+    [JSImport("array", Bridge)]
     [return: JSMarshalAs<JSType.Any>]
-    internal static partial object BridgeCall3(JSObject target, string name,
-        [JSMarshalAs<JSType.Any>] object a, [JSMarshalAs<JSType.Any>] object b,
-        [JSMarshalAs<JSType.Any>] object c);
+    internal static partial object BridgeArray([JSMarshalAs<JSType.Array<JSType.Any>>] object[] items);
 
-    [JSImport("call4", Bridge)]
-    [return: JSMarshalAs<JSType.Any>]
-    internal static partial object BridgeCall4(JSObject target, string name,
-        [JSMarshalAs<JSType.Any>] object a, [JSMarshalAs<JSType.Any>] object b,
-        [JSMarshalAs<JSType.Any>] object c, [JSMarshalAs<JSType.Any>] object d);
+    [JSImport("typeOf", Bridge)]
+    internal static partial string BridgeTypeOf([JSMarshalAs<JSType.Any>] object x);
 
-    [JSImport("call5", Bridge)]
+    [JSImport("wrap", Bridge)]
     [return: JSMarshalAs<JSType.Any>]
-    internal static partial object BridgeCall5(JSObject target, string name,
-        [JSMarshalAs<JSType.Any>] object a, [JSMarshalAs<JSType.Any>] object b,
-        [JSMarshalAs<JSType.Any>] object c, [JSMarshalAs<JSType.Any>] object d,
-        [JSMarshalAs<JSType.Any>] object e);
+    internal static partial object BridgeWrap(int id);
 
-    [JSImport("call6", Bridge)]
-    [return: JSMarshalAs<JSType.Any>]
-    internal static partial object BridgeCall6(JSObject target, string name,
-        [JSMarshalAs<JSType.Any>] object a, [JSMarshalAs<JSType.Any>] object b,
-        [JSMarshalAs<JSType.Any>] object c, [JSMarshalAs<JSType.Any>] object d,
-        [JSMarshalAs<JSType.Any>] object e, [JSMarshalAs<JSType.Any>] object f);
+    // What the values are on each side, the same as clysm's JS package, so that
+    // code written against one reads the same against the other. Going out: NIL
+    // and :NULL are null, T true, :FALSE false, :UNDEFINED undefined, another
+    // keyword its name in lower case, a real a number, a character a string, a
+    // sequence an array of its elements, a function a function. Coming back: null
+    // and undefined are NIL, a boolean T or NIL, a number with no fraction (and
+    // exactly representable) an integer, a string a string. Objects and functions
+    // stay JavaScript's, and a Lisp object that went out comes back as itself.
+    //
+    // The parameters are object rather than LispObject: dotcl hands a wrapped
+    // .NET object, a JSObject among them, to an object parameter as itself, and
+    // would try to convert it to a LispObject one. What reaches here is either a
+    // value dotcl has already made .NET's (null, a long, a string) or a Lisp
+    // object it left alone (T, a keyword, a cons, a function).
+
+    private static object ToJs(object x) => x switch
+    {
+        null or bool or string or double or JSObject => x,
+        long l => (double)l,
+        int i => (double)i,
+        float f => (double)f,
+        char c => c.ToString(),
+        System.Numerics.BigInteger b => (double)b,
+        LispObject lisp => LispToJs(lisp),
+        _ => x,
+    };
+
+    private static object LispToJs(LispObject x) => x switch
+    {
+        Nil => null,
+        T => true,
+        Symbol { HomePackage.Name: "KEYWORD" } s => s.Name switch
+        {
+            "FALSE" => false,
+            "NULL" => null,
+            "UNDEFINED" => BridgeUndefined(),
+            _ => s.Name.ToLowerInvariant(),
+        },
+        Fixnum f => (double)f.Value,
+        DoubleFloat d => d.Value,
+        SingleFloat f => (double)f.Value,
+        Number n => ((DoubleFloat)DotclHost.Call("FLOAT", n, new DoubleFloat(1.0))).Value,
+        LispString s => s.Value,
+        LispChar c => c.Value.ToString(),
+        LispVector v when v.IsCharVector => v.ToCharString(),
+        LispVector v => BridgeArray(Elements(v)),
+        Cons c => BridgeArray(Arguments(c)),
+        LispFunction f => Wrap(f),
+        LispDotNetObject o => ToJs(o.Value),
+        _ => x,
+    };
+
+    private static object[] Elements(LispVector v)
+    {
+        var items = new object[v.Length];
+        for (var i = 0; i < items.Length; i++) items[i] = LispToJs(v[i]);
+        return items;
+    }
+
+    /// <summary>A Lisp list as the arguments of a call. NIL arrives as null.</summary>
+    private static object[] Arguments(object list)
+    {
+        var items = new System.Collections.Generic.List<object>();
+        for (var l = list as Cons; l != null; l = l.Cdr as Cons) items.Add(LispToJs(l.Car));
+        return items.ToArray();
+    }
+
+    private static LispObject ToLisp(object o) => o switch
+    {
+        null => Nil.Instance,
+        bool b => b ? T.Instance : Nil.Instance,
+        double d when Math.Floor(d) == d && Math.Abs(d) < 9007199254740992.0 => Fixnum.Make((long)d),
+        double d => new DoubleFloat(d),
+        int i => Fixnum.Make(i),
+        long l => Fixnum.Make(l),
+        string s => new LispString(s),
+        LispObject lisp => lisp,
+        _ => new LispDotNetObject(o),
+    };
+
+    // A Lisp function as a JavaScript one, which an event can call. The page
+    // thread may not call into C# synchronously in the threaded build, and a
+    // call it made could not call JavaScript back in turn, so the function the
+    // page gets hands its arguments to JsDeliver and returns at once; the Lisp
+    // runs on a thread of its own, as a block does. What it returns is dropped.
+    // Functions are kept for as long as the page lives: nothing says when
+    // JavaScript has let go of one.
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, LispFunction>
+        _callbacks = new();
+    private static int _lastCallback;
+
+    private static object Wrap(LispFunction f)
+    {
+        var id = System.Threading.Interlocked.Increment(ref _lastCallback);
+        _callbacks[id] = f;
+        return BridgeWrap(id);
+    }
+
+    [JSExport]
+    public static Task JsDeliver(int id, JSObject args) => Task.Run(() =>
+    {
+        try
+        {
+            var n = (int)(double)BridgeGet(args, "length");
+            var lisp = new LispObject[n];
+            for (var i = 0; i < n; i++) lisp[i] = ToLisp(BridgeGet(args, (double)i));
+            Runtime.Funcall(_callbacks[id], lisp);
+        }
+        catch (Exception e) { Console.Error.WriteLine("a Lisp callback failed:" + Chain(e)); }
+    });
+
+    // A JavaScript exception does not cross as itself: what the marshaller hands
+    // over is a JSException with a message and nothing else. js-bridge.js keeps
+    // what was thrown, and the call returns Failure — one object, compared by
+    // identity, so a value never mistakes for it — for js.lisp to ask about and
+    // signal JS:JS-ERROR with. Signalling from here would have meant a Lisp error
+    // crossing back out through the host's entry points.
+
+    private static readonly LispObject Failure = new LispString("a JavaScript exception");
+
+    [ThreadStatic] private static object _thrown;
+
+    private static LispObject Js(Func<object> f)
+    {
+        try { return ToLisp(f()); }
+        catch (JSException) { _thrown = BridgeLastThrown(); return Failure; }
+    }
+
+    public static LispObject JsFailure() => Failure;
+    public static LispObject JsThrown() => ToLisp(_thrown);
+    public static string JsThrownName() => _thrown == null ? null : BridgeNameOf(_thrown);
+    public static string JsThrownMessage() => BridgeMessageOf(_thrown);
 
     /// <summary>globalThis — where reaching anything else starts.</summary>
-    public static JSObject JsGlobal() => JSHost.GlobalThis;
+    public static LispObject JsGlobal() => new LispDotNetObject(JSHost.GlobalThis);
 
-    public static object JsGet(JSObject t, string name) => BridgeGet(t, name);
-    public static void JsSet(JSObject t, string name, object v) => BridgeSet(t, name, v);
-    public static object JsCall(JSObject t, string name) => BridgeCall0(t, name);
-    public static object JsCall(JSObject t, string name, object a) => BridgeCall1(t, name, a);
-    public static object JsCall(JSObject t, string name, object a, object b)
-        => BridgeCall2(t, name, a, b);
-    public static object JsCall(JSObject t, string name, object a, object b, object c)
-        => BridgeCall3(t, name, a, b, c);
-    public static object JsCall(JSObject t, string name, object a, object b, object c, object d)
-        => BridgeCall4(t, name, a, b, c, d);
-    public static object JsCall(JSObject t, string name, object a, object b, object c, object d,
-        object e) => BridgeCall5(t, name, a, b, c, d, e);
-    public static object JsCall(JSObject t, string name, object a, object b, object c, object d,
-        object e, object f) => BridgeCall6(t, name, a, b, c, d, e, f);
+    public static LispObject JsGet(object target, object key)
+        => Js(() => BridgeGet(ToJs(target), ToJs(key)));
+
+    public static LispObject JsSet(object target, object key, object value)
+        => Js(() => { BridgeSet(ToJs(target), ToJs(key), ToJs(value)); return null; });
+
+    public static LispObject JsCall(object target, object key, object args)
+        => Js(() => BridgeCall(ToJs(target), ToJs(key), Arguments(args)));
+
+    public static LispObject JsFuncall(object function, object args)
+        => Js(() => BridgeApply(ToJs(function), Arguments(args)));
+
+    public static LispObject JsNew(object constructor, object args)
+        => Js(() => BridgeConstruct(ToJs(constructor), Arguments(args)));
+
+    public static LispObject JsToJs(object x) => ToLisp(ToJs(x));
+
+    public static bool JsValueP(object x) => x is JSObject;
+
+    public static string JsTypeOf(object x) => x is JSObject ? BridgeTypeOf(x) : "lisp";
 
     // ── the editor ───────────────────────────────────────────────────────────
     //

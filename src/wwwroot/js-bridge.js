@@ -1,4 +1,4 @@
-// The whole of JavaScript, through five functions.
+// The whole of JavaScript, through a handful of functions.
 //
 // [JSImport] is resolved at build time: a page that wanted createElement,
 // appendChild, getContext and the rest as imports would have to name every one
@@ -7,30 +7,52 @@
 // by name at run time — which is how the Lisp side gets to be the part that
 // grows.
 //
-// Arities are spelled out rather than taken as an array because the import
-// signature has to be fixed anyway, and fixed arities marshal every argument as
-// itself. An array would have meant wrapping each one first.
+// Arguments come as one array, so a call takes as many as it likes. What the
+// values are on the way in and out is decided in Program.cs, not here; the one
+// thing this file has to do for it is undefined, which the marshaller would
+// otherwise turn into null in both directions.
 
-export function get(target, name) { return target[name]; }
+const UNDEFINED = Object.freeze({});
 
-export function set(target, name, value) { target[name] = value; }
+// The marshaller will not carry a function as "any", and carries an array as a
+// copy, so either leaves here in a box — a reference, as other objects are —
+// and is taken out of it when it comes back.
+class Box { constructor(x) { this.x = x; } }
+const out = (x) => (typeof x === 'function' || Array.isArray(x) || ArrayBuffer.isView(x)
+                    ? new Box(x) : x);
 
-export function call0(target, name) { return target[name](); }
-export function call1(target, name, a) { return target[name](a); }
-export function call2(target, name, a, b) { return target[name](a, b); }
-export function call3(target, name, a, b, c) { return target[name](a, b, c); }
-export function call4(target, name, a, b, c, d) { return target[name](a, b, c, d); }
-// Six because arc(x, y, r, from, to, anticlockwise) is six and a bridge that
-// cannot draw a circle is not finished. Anything wider — drawImage takes nine —
-// wants a shim function of its own rather than another arity here.
-export function call5(target, name, a, b, c, d, e) { return target[name](a, b, c, d, e); }
-export function call6(target, name, a, b, c, d, e, f) { return target[name](a, b, c, d, e, f); }
+const value = (x) => (x === UNDEFINED ? undefined : x instanceof Box ? x.x : x);
+const values = (xs) => xs.map(value);
 
-export function construct0(name) { return new globalThis[name](); }
-export function construct1(name, a) { return new globalThis[name](a); }
+// What the last call that threw threw, for Program.cs to take apart. The
+// exception the marshaller hands over carries only a message.
+let thrown;
+const guard = (f) => { try { return f(); } catch (e) { thrown = e; throw e; } };
 
-// A callback, so Lisp can be an event handler. The managed side hands over a
-// function it already knows how to hold on to; this only forwards the event.
-export function on(target, event, handler) {
-    target.addEventListener(event, (e) => handler(e));
+export function undefinedMarker() { return UNDEFINED; }
+export function lastThrown() { const e = thrown; thrown = undefined; return e; }
+export function nameOf(e) { return e instanceof Error ? e.name : null; }
+export function messageOf(e) { return e instanceof Error ? e.message : String(e); }
+
+export function get(target, key) { return guard(() => out(value(target)[value(key)])); }
+export function set(target, key, x) { guard(() => { value(target)[value(key)] = value(x); }); }
+export function call(target, key, args) {
+    return guard(() => { const t = value(target); return out(t[value(key)](...values(args))); });
 }
+export function apply(f, args) { return guard(() => out(value(f)(...values(args)))); }
+export function construct(c, args) { return guard(() => out(new (value(c))(...values(args)))); }
+export function array(items) { return out(values(items)); }
+export function typeOf(x) { x = value(x); return x === null ? 'null' : typeof x; }
+
+// A Lisp function as a JavaScript one, which an event can call. It does not
+// wait for the Lisp: this thread may not call managed code synchronously in the
+// threaded build, and code that did would block the page while it ran. So the
+// call is handed to an asynchronous export and returns undefined at once — a
+// listener works, a callback whose value is wanted (map, sort) does not.
+let exportsOf;
+const deliver = (id, args) => {
+    const runtime = globalThis.getDotnetRuntime(0);
+    exportsOf ??= runtime.getAssemblyExports(runtime.getConfig().mainAssemblyName);
+    exportsOf.then((e) => e.Playground.JsDeliver(id, args));
+};
+export function wrap(id) { return new Box((...args) => { deliver(id, args.map(out)); }); }
