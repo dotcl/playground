@@ -58,10 +58,12 @@
        program — finds nothing, and REQUIRE is not optional: a core built from
        asdf systems asks ASDF for its own versions as it loads. They are carried
        as bytes and written to the in-memory filesystem at boot.
-         -p:ContribModules='$(DotclAssetsDir)contrib/*/*.fasl'
-       The package ships them, so this needs nothing checked out. Building
-       against a checkout instead, DotclAssetsDir is empty and that glob quietly
-       matches nothing — point it at the checkout's own contrib/ there. -->
+         -p:ContribModules=all
+       takes every module from where ReplContrib below does: the package's, or
+       a checkout's contrib/ when one is used. A glob of your own works too.
+       Not '$(DotclAssetsDir)contrib/*/*.fasl' on the command line: a property
+       given there is taken as it is written, and the $(...) in it is never
+       expanded, so it matches nothing and nothing is embedded. -->
   <PropertyGroup>
     <ContribModules Condition="'$(ContribModules)' == ''"></ContribModules>
   </PropertyGroup>
@@ -74,6 +76,12 @@
   <PropertyGroup>
     <ReplContrib Condition="'$(ReplContrib)' == '' and Exists('$(DotclSource)')">$([System.IO.Path]::GetDirectoryName('$(DotclSource)'))/../contrib/</ReplContrib>
     <ReplContrib Condition="'$(ReplContrib)' == ''">$(DotclAssetsDir)contrib/</ReplContrib>
+  </PropertyGroup>
+  <!-- A property given on the command line cannot be reassigned here, so "all"
+       is read into another one rather than replaced. -->
+  <PropertyGroup>
+    <_ContribGlob>$(ContribModules)</_ContribGlob>
+    <_ContribGlob Condition="'$(ContribModules)' == 'all'">$(ReplContrib)*/*.fasl</_ContribGlob>
   </PropertyGroup>
 
   <!-- A data file the image expects to find on disk. trivial-mimes reads
@@ -97,8 +105,8 @@
     <EmbeddedResource Condition="'$(MimeTypes)' != ''" Include="$(MimeTypes)" LogicalName="etc/mime.types" />
     <!-- The -r2r- variants are the same module ahead-of-time compiled for one
          desktop RID; the plain .fasl is the portable IL a page can load. -->
-    <EmbeddedResource Condition="'$(ContribModules)' != ''"
-                      Include="$(ContribModules)" Exclude="**/*-r2r-*.fasl">
+    <EmbeddedResource Condition="'$(_ContribGlob)' != ''"
+                      Include="$(_ContribGlob)" Exclude="**/*-r2r-*.fasl">
       <LogicalName>contrib/%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="prelude.lisp" LogicalName="prelude.lisp" />

@@ -40,21 +40,34 @@ run nothing above, so opening a block runs the earlier ones first.
 
 ## Building
 
-With a dotcl checkout next door (`../dotcl`), the source tree is used, which is how
-to test unreleased runtime changes:
+Prerequisites: the .NET 10 SDK and the WebAssembly workloads.
 
 ```sh
-cd src
-dotnet publish -c Release
+dotnet workload install wasm-tools wasm-experimental
 ```
 
-Without one, the published `DotCL.Runtime` package is used — which is what CI
-does, and it needs `0.1.23` or newer for two reasons. The page hands the core to
-`DotclHost.LoadCore(byte[])`, because a page has no filesystem to give it a path
-to, and it takes the core from the package rather than carrying a copy, which
-needs the package to say where its own assets are. Neither was true of `0.1.22`.
+`global.json` holds the build to a 10.0 SDK. SDK 11 no longer generates the
+app bundle for a project like this one: the publish succeeds and produces no
+`AppBundle/`. With only SDK 11 installed, the build stops at `global.json`
+instead of doing that.
 
-Either way the output is a directory of static files:
+What the site publishes, from the repository root:
+
+```sh
+dotnet publish src/Playground.csproj -c Release -p:WasmEnableThreads=true
+```
+
+The recipe that is kept true is [`.github/workflows/pages.yml`](.github/workflows/pages.yml):
+it is what builds and deploys the site on every push, and says why each step is
+there. This section covers only what that workflow does not do, building
+against a checkout and putting a bigger image in.
+
+Leave out `-p:WasmEnableThreads=true` and the REPL and the editor cannot start,
+since each blocks on a thread of its own; the REPL page says so. The other pages
+run, and Lisp callbacks from JavaScript become synchronous (see
+[Calling JavaScript from Lisp](docs/javascript.md#lisp-functions-as-callbacks)).
+
+The output is a directory of static files:
 
 ```
 src/bin/Release/net10.0/browser-wasm/AppBundle/
@@ -62,10 +75,24 @@ src/bin/Release/net10.0/browser-wasm/AppBundle/
 
 Serve it over HTTP — `file://` will not do, WebAssembly needs real responses.
 
-Prerequisites: .NET 10 SDK and the WebAssembly workloads.
+### Where dotcl comes from
+
+Normally from the published `DotCL.Runtime` package, at the version
+`src/Playground.csproj` names. That is what CI does. The REPL page needs
+`0.1.34` or newer, for `dotcl-repl`'s terminal and interrupt and for
+`dotcl-code-info`. Anything at all needs `0.1.23` or newer: the page hands the
+core to `DotclHost.LoadCore(byte[])`, because a page has no filesystem to give
+it a path to, and it takes the core from the package rather than carrying a
+copy, which needs the package to say where its own assets are.
+
+**A dotcl checkout next door, `../dotcl`, is used instead, silently.** That is
+how to test unreleased runtime changes, and it takes the checkout as it is: the
+runtime project, the `compiler/dotcl.core` built beside it, and its `contrib/`.
+So a stale checkout gives a stale build. To build against the package with a
+checkout present, point `DotclSource` at a path that does not exist:
 
 ```sh
-dotnet workload install wasm-tools wasm-experimental
+dotnet publish src/Playground.csproj -c Release -p:WasmEnableThreads=true -p:DotclSource=none
 ```
 
 ## Things worth knowing before changing it
@@ -123,11 +150,17 @@ takes three optional inputs, all off by default, for putting a `save-application
 core into the page on top of the base one:
 
 ```sh
-dotnet publish -c Release \
+dotnet publish src/Playground.csproj -c Release -p:WasmEnableThreads=true \
   -p:ExtraCore=path/to/whatever-save-application-produced.core \
-  -p:ContribModules='$(DotclAssetsDir)contrib/*/*.fasl' \
+  -p:ContribModules=all \
   -p:MimeTypes=path/to/trivial-mimes/mime.types
 ```
+
+`ContribModules=all` embeds every contrib module from wherever dotcl comes
+from, the package or the checkout; a glob of your own works too.
+`'$(DotclAssetsDir)contrib/*/*.fasl'` does not: a property given on the command
+line is taken as written, the `$(...)` in it is never expanded, and nothing is
+embedded.
 
 Nothing here is about Lem. `ExtraCore` is whatever `save-application` produced,
 and Lem is only the largest thing that has been put through it — a closure of a
